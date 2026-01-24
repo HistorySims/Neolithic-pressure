@@ -1,285 +1,865 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Press & Profit: Calibrator</title>
-  <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Neolithic: Carrying Capacity (Tunable v2)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background: #111;
-      font-family: monospace;
-      color: white;
-      overflow: hidden;
-      height: 100vh;
-      width: 100vw;
-    }
-    
-    #root { width: 100%; height: 100%; }
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@400;700&display=swap');
+    body { font-family:'Lato',sans-serif; -webkit-tap-highlight-color:transparent; }
+    h1,h2,h3,.cinzel { font-family:'Cinzel',serif; }
 
-    /* The Main Layout */
-    .app-container {
-      display: flex;
-      width: 100%;
-      height: 100%;
-    }
+    .landscape-container{ position:relative; overflow:hidden; transition:background 1s ease; min-height:420px; }
+    .entity{ position:absolute; transition:all .5s ease-out; }
+    .animate-bob{ animation:bob 2s infinite ease-in-out; }
+    .animate-grow{ animation:grow .4s cubic-bezier(.175,.885,.32,1.275) forwards; }
+    .shake-screen{ animation:shake .4s ease-in-out; }
+    .floater{ position:absolute; animation:float-up 2s forwards; pointer-events:none; font-weight:700; z-index:50; text-shadow:1px 1px 0 #fff; }
 
-    /* Sidebar */
-    .sidebar {
-      width: 250px;
-      background: #222;
-      border-right: 1px solid #555;
-      display: flex;
-      flex-direction: column;
-      z-index: 20;
-    }
-    .sidebar h2 { padding: 10px; margin: 0; font-size: 1.2rem; background: #333; }
-    .job-list { padding: 10px; overflow-y: auto; flex-grow: 1; }
-    .job-card { 
-      padding: 10px; border: 1px solid #444; margin-bottom: 8px; cursor: pointer; 
-      transition: background 0.2s;
-    }
-    .job-card:hover { background: #333; }
-    .job-card.active { background: #004400; border-color: #00ff00; }
+    @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+    @keyframes float-up{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}
+    @keyframes grow{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+    @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 
-    /* The Workspace Image Area */
-    .workspace {
-      flex-grow: 1;
-      position: relative;
-      background-color: #333; /* Fallback if image fails */
-      background-size: 100% 100%;
-      background-repeat: no-repeat;
+    @keyframes hop{
+      0%{transform:translate(0,0) scale(1);opacity:0}
+      10%{opacity:1}
+      40%{transform:translate(18px,-10px) scale(1.02)}
+      70%{transform:translate(34px,0) scale(1)}
+      100%{transform:translate(55px,-6px) scale(1);opacity:0}
     }
+    .animate-hop{ animation:hop 2.2s ease-in-out infinite; }
 
-    /* THE ZONES (The invisible containers) */
-    .zone {
-      position: absolute;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      /* Default transparent, but visible in tuning mode */
+    @keyframes lumber{
+      0%{transform:translate(0,0) scale(1);opacity:0}
+      12%{opacity:1}
+      55%{transform:translate(26px,-2px) scale(1.01)}
+      100%{transform:translate(58px,0) scale(1);opacity:0}
     }
-    
-    /* Tuning Mode Styles */
-    .tuning-active .zone {
-      border: 2px dashed #00ff00;
-      background: rgba(0, 255, 0, 0.1);
+    .animate-lumber{ animation:lumber 2.8s ease-in-out infinite; }
+
+    /* Visible squalor haze */
+    .squalor-overlay{
+      position:absolute; inset:0;
+      background:
+        radial-gradient(circle at 40% 35%, rgba(0,0,0,0) 35%, rgba(28,25,23,0.85) 100%),
+        radial-gradient(circle at 70% 60%, rgba(0,0,0,0) 45%, rgba(17,24,39,0.55) 100%);
+      pointer-events:none; opacity:0; transition:opacity 1s; z-index:20;
+      mix-blend-mode:multiply;
     }
-    .tuning-active .zone::after {
-      content: attr(data-label);
-      position: absolute;
-      top: -20px;
-      left: 0;
-      background: #00ff00;
-      color: black;
-      font-size: 10px;
-      padding: 2px 4px;
-    }
-    
-    /* UI Elements inside Zones */
-    .scroll-text {
-      color: #000; 
-      font-family: serif; 
-      font-size: 1.2rem; 
-      text-align: center;
-      font-weight: bold;
-      text-shadow: 0 0 5px white; /* Glow to ensure visibility */
-    }
-    
-    .type-block {
-      width: 50px; height: 50px;
-      background: #5d4037;
-      color: white;
-      border: 2px solid #222;
-      display: flex; justify-content: center; align-items: center;
-      font-size: 20px;
-      box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
-      cursor: pointer;
+    .sick-tint{
+      position:absolute; inset:0;
+      background: radial-gradient(circle at 50% 60%, rgba(34,197,94,0.0) 35%, rgba(34,197,94,0.22) 100%);
+      pointer-events:none; opacity:0; transition:opacity 1s; z-index:21;
+      mix-blend-mode:overlay;
     }
 
-    .drawer-grid {
-      display: flex; gap: 10px;
-    }
+    .bg-lush{ background:linear-gradient(to bottom,#86efac 0%,#15803d 100%); }
+    .bg-depleted{ background:linear-gradient(to bottom,#fde047 0%,#a16207 100%); }
+    .bg-dead{ background:linear-gradient(to bottom,#d6d3d1 0%,#78716c 100%); }
 
-    /* Calibrator Panel */
-    .calibrator {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      width: 250px;
-      background: rgba(0,0,0,0.8);
-      border: 1px solid #00ff00;
-      padding: 15px;
-      z-index: 1000;
-      font-size: 0.8rem;
-    }
-    .calibrator label { display: block; margin-top: 10px; color: #00ff00; }
-    .calibrator input[type=range] { width: 100%; }
-    .calibrator .val { float: right; color: white; }
-    
+    .btn-action:active{ transform:scale(.95); }
   </style>
 </head>
-<body>
-  <div id="root"></div>
 
-  <script type="text/babel">
+<body class="bg-stone-900 flex flex-col items-center justify-start p-4 text-stone-800 min-h-screen">
+
+<div id="game-container" class="w-full max-w-5xl bg-stone-100 rounded-xl shadow-2xl flex flex-col border-4 border-stone-800 relative">
+
+  <div id="game-over-screen" class="hidden absolute inset-0 bg-stone-900/95 z-[60] flex flex-col items-center justify-center text-white p-6 text-center animate-grow">
+    <i class="fas fa-skull text-6xl text-red-600 mb-4"></i>
+    <h1 class="text-4xl md:text-5xl text-red-500 mb-4 cinzel">EXTINCTION</h1>
+    <p class="text-xl mb-2">Nature could not sustain your numbers.</p>
+    <p class="text-stone-400 mb-8 font-mono">You survived for <span id="final-year" class="text-white font-bold">0</span> Years.</p>
+    <button onclick="location.reload()" class="px-8 py-3 bg-stone-100 hover:bg-white text-stone-900 rounded font-bold transition-transform hover:scale-105 active:scale-95 shadow-lg">
+      Try Again
+    </button>
+  </div>
+
+  <div class="bg-stone-800 text-stone-200 p-4 flex flex-col md:flex-row justify-between items-center z-30 shadow-md shrink-0 gap-2">
+    <div class="flex items-center gap-3">
+      <h1 class="text-xl md:text-2xl font-bold tracking-wider text-amber-500 cinzel">The Carrying Capacity</h1>
+    </div>
+    <div class="flex gap-4 font-mono text-sm md:text-base">
+      <div>Year <span id="ui-year" class="text-amber-400 font-bold">1</span></div>
+      <div id="ui-season" class="text-blue-300">Spring</div>
+    </div>
+  </div>
+
+  <div id="landscape" class="landscape-container bg-lush w-full h-[50vh] md:h-[60vh]">
+    <div class="absolute top-4 left-10 text-6xl text-white/30"><i class="fas fa-cloud"></i></div>
+    <div class="absolute top-10 right-20 text-4xl text-yellow-300/80 animate-bob"><i class="fas fa-sun"></i></div>
+
+    <div id="squalor-fx" class="squalor-overlay"></div>
+    <div id="sick-tint" class="sick-tint"></div>
+    <div id="entities" class="absolute inset-0 z-10 p-8 pointer-events-none"></div>
+
+    <div class="absolute top-4 left-4 z-40 flex flex-col gap-2 pointer-events-none">
+      <div class="bg-white/90 backdrop-blur p-2 rounded border-l-4 border-blue-600 w-52 shadow-lg animate-grow">
+        <div class="text-[10px] text-stone-500 uppercase font-bold">Population</div>
+        <div class="text-xl font-bold flex items-center gap-2">
+          <i class="fas fa-users text-blue-600"></i>
+          <span id="ui-pop">10</span>
+          <span class="text-xs text-stone-400 font-normal">/ <span id="ui-housing">15</span> Cap</span>
+        </div>
+      </div>
+
+      <div class="bg-white/90 backdrop-blur p-2 rounded border-l-4 border-amber-500 w-52 shadow-lg animate-grow" style="animation-delay:.08s">
+        <div class="text-[10px] text-stone-500 uppercase font-bold">Food Stores</div>
+        <div class="text-xl font-bold flex items-center gap-2">
+          <i class="fas fa-wheat text-amber-600"></i>
+          <span id="ui-food">55</span>
+          <span class="text-xs text-stone-400 font-normal">/ <span id="ui-storage">140</span></span>
+        </div>
+        <div id="storage-warn" class="hidden text-[10px] text-red-600 font-bold animate-pulse">STORAGE FULL</div>
+      </div>
+    </div>
+
+    <div id="fail-msg" class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-900/95 text-white p-6 rounded-xl text-center z-50 shadow-2xl border-2 border-red-500 animate-grow w-3/4 md:w-auto">
+      <i class="fas fa-lock text-4xl mb-3 text-red-300"></i>
+      <div class="font-bold text-xl mb-2 text-red-100">CANNOT MOVE</div>
+      <div class="text-sm">Travel Cost: <span id="fail-cost" class="font-bold">0</span> Food</div>
+      <div class="text-sm">You Have: <span id="fail-have" class="font-bold text-red-300">0</span> Food</div>
+    </div>
+  </div>
+
+  <div class="bg-stone-100 border-t-4 border-stone-700 flex flex-col md:flex-row z-30 shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.3)]">
+    <div class="w-full md:w-1/3 h-48 bg-stone-200 p-4 border-b md:border-b-0 md:border-r border-stone-300 overflow-y-auto font-medium text-sm text-stone-700 order-2 md:order-1" id="log">
+      <div class="mb-2 pb-2 border-b border-stone-300 text-stone-400 text-xs uppercase tracking-widest">Tribal History</div>
+    </div>
+
+    <div class="w-full md:w-2/3 p-4 grid grid-cols-2 gap-3 bg-stone-100 order-1 md:order-2">
+
+      <button onclick="window.game.action('hunt')" class="btn-action group bg-white border-2 border-green-200 hover:bg-green-50 hover:border-green-600 rounded-xl flex flex-col items-center justify-center shadow-sm transition-colors py-4">
+        <div class="text-3xl mb-1 group-hover:scale-110 transition-transform">🏹</div>
+        <div class="font-bold text-stone-800 text-sm">HUNT</div>
+        <div class="text-[10px] text-stone-500">Depletes deer; mammoths are global & finite.</div>
+      </button>
+
+      <button onclick="window.game.action('farm')" class="btn-action group bg-white border-2 border-amber-200 hover:bg-amber-50 hover:border-amber-600 rounded-xl flex flex-col items-center justify-center shadow-sm transition-colors py-4">
+        <div class="text-3xl mb-1 group-hover:scale-110 transition-transform">🌾</div>
+        <div class="font-bold text-stone-800 text-sm">FARM</div>
+        <div class="text-[10px] text-stone-500">Farms ≤ Pop. Feeds big cities (even sick ones).</div>
+      </button>
+
+      <button onclick="window.game.action('build')" class="btn-action group bg-white border-2 border-stone-300 hover:bg-stone-100 hover:border-stone-600 rounded-xl flex flex-col items-center justify-center shadow-sm transition-colors py-4">
+        <div class="text-3xl mb-1 group-hover:scale-110 transition-transform">🛖</div>
+        <div class="font-bold text-stone-800 text-sm">BUILD</div>
+        <div class="text-[10px] text-stone-500 text-center">+Housing, +Storage<br>(Deepens the trap)</div>
+      </button>
+
+      <button onclick="window.game.action('move')" class="btn-action group bg-blue-50 border-2 border-blue-300 hover:bg-blue-100 hover:border-blue-600 rounded-xl flex flex-col items-center justify-center shadow-sm transition-colors py-4">
+        <div class="text-3xl mb-1 group-hover:scale-110 transition-transform">🦶</div>
+        <div class="font-bold text-blue-900 text-sm">MOVE</div>
+        <div class="text-[10px] text-blue-600 text-center font-bold" id="move-cost-text">Cost: 20</div>
+      </button>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// =========================================================================
+//  TUNING SECTION - EDIT VARIABLES HERE
+//  Warning: Only change numbers. Do not delete commas (,) at end of lines.
+// =========================================================================
+const TUNING = {
+    // --- GLOBAL RESOURCES ---
+    WORLD_MAMMOTHS: 8,           // Total Mammoths available in the entire game
+
+    // --- STARTING STATE ---
+    INIT_POP: 10,                // Starting population
+    INIT_FOOD: 55,               // Starting food
+    INIT_STORAGE: 40,            // Base storage (before buildings)
+    INIT_HOUSING: 15,            // Base housing (before buildings)
+
+    // --- CONSUMPTION ---
+    POP_EAT_RATE: 2.15,          // Food eaten per person per turn
+    CARRY_CAPACITY: 10,          // Extra storage added per person (carrying)
+
+    // --- GROWTH MECHANICS ---
+    GROWTH_BASE_RATE: 1.07,      // 7% growth per turn if conditions are good
+    GROWTH_FARM_BOOST: 0.0016,   // Boost per Farm
+    GROWTH_SQUALOR_PENALTY: 0.18,// Growth slowdown from squalor
     
-    // DEFAULT CONFIGURATION (Start points)
-    const DEFAULT_LAYOUT = {
-      scroll: { top: 15, left: 10, width: 40, height: 25 },
-      desk:   { top: 50, left: 10, width: 60, height: 30 },
-      drawer: { top: 82, left: 2,  width: 65, height: 15 },
-      shelf:  { top: 5,  left: 70, width: 28, height: 90 }
+    // Settlement Boom
+    BOOM_PER_TURN: 0.006,        // Growth bonus per turn settled
+    BOOM_MAX: 0.65,              // Max growth bonus
+    BOOM_START_DELAY: 4,         // Turns before boom starts
+
+    // --- FARMING ---
+    FARM_LABOR_BASE: 48,         // Clicks for first farm
+    FARM_LABOR_SCALE: 16,        // Extra clicks for subsequent farms
+    FARM_YIELD_PER_FARM: 10,     // Food per farm
+    FARM_UPKEEP_PER_FARM: 0.25,  // Seeds used per farm
+    FARM_SQUALOR_HIT: 0.10,      // Efficiency lost at max squalor
+    FARM_LAND_HIT: 0.35,         // Efficiency lost at 0 land health
+    // Farm yields improve the longer you stay settled (innovation)
+    FARM_YIELD_GROWTH_PER_TURN: 0.015, // +1.5% yield per turn settled
+
+    // --- HUNTING ---
+    DEER_BASE_REGEN: 2.2,        // Deer recovery
+    DEER_YIELD_PER_HUNTER: 5.8,  // Food per hunter
+    DEER_DEPLETION_PER_HUNTER: 1.75, 
+    MAMMOTH_YIELD: 120,          
+    MAMMOTH_RISK: 0.18,          // Chance of death (18%)
+    HUNT_SQUALOR_HIT: 0.75,      // Sickness hurts hunting
+
+    // --- BUILDING ---
+    BUILD_COST_PER_POP: 0.55,    // Food cost per person
+    BUILD_HOUSING_GAIN: 5,       
+    BUILD_STORAGE_GAIN: 40,      
+
+    // --- SQUALOR & DISEASE ---
+    OVERCROWD_SQUALOR_MULT: 10,  // How fast crowding creates squalor
+    
+    // NEW: When does crowding start? (0.9 = 90% full, 1.1 = 110% full)
+    SQUALOR_CROWDING_START: 0.9, 
+    
+    // NEW: Master Speed dial for squalor (0.5 = fills half as fast, 1.0 = normal)
+    SQUALOR_GAIN_SPEED: 0.2,
+
+    SQUALOR_FROM_FARMS: 0.25,    
+    SQUALOR_FROM_BUILD: 0.70,    
+    SQUALOR_DECAY_LIGHT: 0.25,   
+
+    DISEASE_START: 55,           
+    DISEASE_SPIKE: 80,           
+    DISEASE_CHANCE_BASE: 0.1,   
+    DISEASE_DEATH_BASE: 0.02,    
+    DISEASE_DEATH_MAX: 0.10,     
+
+    // --- LAND & DECAY ---
+    LAND_DECAY_FROM_FARMS: 0.65, 
+    LAND_DECAY_FROM_BUILD: 1.10, 
+    LAND_DECAY_FROM_POP: 0.03,   
+    LAND_POP_THRESHOLD: 25,      
+    LAND_RECOVERY: 0.8,          
+
+    // --- MOVE COSTS ---
+    MOVE_COST_BASE: 14,          
+    MOVE_COST_SETTLED: 0.95,     
+    MOVE_COST_FLOOR: 12          
+};
+
+// =========================================================================
+//  GAME LOGIC (DO NOT EDIT BELOW THIS LINE)
+// =========================================================================
+
+class Game {
+  // Global static to track mammoths across resets
+  static worldMammoths = (TUNING.WORLD_MAMMOTHS !== undefined) ? TUNING.WORLD_MAMMOTHS : 8;
+  static worldExtinctLogged = false;
+
+  constructor(){
+    // Helper to prevent NaN if user deletes a line
+    this.safe = (val, defaultVal) => (typeof val === 'number' && !isNaN(val)) ? val : defaultVal;
+
+    // ===== State =====
+    this.state = {
+      turn: 1,
+      season: 0,
+      pop: this.safe(TUNING.INIT_POP, 10),
+      food: this.safe(TUNING.INIT_FOOD, 55),
+      baseStorage: this.safe(TUNING.INIT_STORAGE, 40),
+      housingCap: this.safe(TUNING.INIT_HOUSING, 15),
+
+      farms: 0,
+      farmProgress: 0,
+      builds: 0,
+
+      deer: 100,
+      land: 100,
+      squalor: 0,
+      settled: 0,
+
+      turnsSinceMove: 0 
     };
 
-    function App() {
-      // Toggle for Debug Mode
-      const [tuningMode, setTuningMode] = React.useState(true); // Default ON so you can see it immediately
-      const [currentImage, setCurrentImage] = React.useState('bg_china.png');
-      
-      // Layout State (The positions of the boxes)
-      const [layout, setLayout] = React.useState(DEFAULT_LAYOUT);
-      const [selectedZone, setSelectedZone] = React.useState('scroll');
+    this.ui = {
+      pop: document.getElementById('ui-pop'),
+      housing: document.getElementById('ui-housing'),
+      food: document.getElementById('ui-food'),
+      storage: document.getElementById('ui-storage'),
+      storageWarn: document.getElementById('storage-warn'),
+      year: document.getElementById('ui-year'),
+      season: document.getElementById('ui-season'),
+      log: document.getElementById('log'),
+      landscape: document.getElementById('landscape'),
+      entities: document.getElementById('entities'),
+      squalorFx: document.getElementById('squalor-fx'),
+      sickTint: document.getElementById('sick-tint'),
+      moveCostText: document.getElementById('move-cost-text'),
+      failMsg: document.getElementById('fail-msg'),
+      failCost: document.getElementById('fail-cost'),
+      failHave: document.getElementById('fail-have'),
+      container: document.getElementById('game-container'),
+      gameOverScreen: document.getElementById('game-over-screen'),
+      finalYear: document.getElementById('final-year')
+    };
 
-      // Game State
-      const [bed, setBed] = React.useState([]);
+    this.seasons = ['Spring','Summer','Autumn','Winter'];
+    this.log(`Fresh land. Deer are plentiful. Mammoths in the world: ${Game.worldMammoths}.`, "text-green-700");
+    this.log(`Births compound each turn when food is strong.`, "text-stone-700");
+    this.render();
+  }
 
-      // --- Tuning Helper Functions ---
-      const updateLayout = (key, value) => {
-        setLayout(prev => ({
-          ...prev,
-          [selectedZone]: { ...prev[selectedZone], [key]: parseFloat(value) }
-        }));
-      };
+  // Helper to ensure values stay within 0-100 range
+  clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
 
-      const Zone = ({ name, children }) => {
-        const style = {
-          top: `${layout[name].top}%`,
-          left: `${layout[name].left}%`,
-          width: `${layout[name].width}%`,
-          height: `${layout[name].height}%`,
-        };
-        return (
-          <div className="zone" style={style} data-label={name.toUpperCase()} onClick={() => setSelectedZone(name)}>
-            {children}
-          </div>
-        );
-      };
+  getTotalStorage(){ 
+    const capacity = this.safe(TUNING.CARRY_CAPACITY, 10);
+    return this.state.baseStorage + (this.state.pop * capacity); 
+  }
 
-      return (
-        <div className={`app-container ${tuningMode ? 'tuning-active' : ''}`}>
-          
-          {/* SIDEBAR */}
-          <div className="sidebar">
-            <h2>Work Orders</h2>
-            <div className="job-list">
-              <div className="job-card active">Sample Job</div>
-              <div className="job-card">Another Job</div>
-            </div>
-            <div style={{padding:'10px', borderTop:'1px solid #444'}}>
-              <button onClick={() => setCurrentImage('bg_china.png')}>China Img</button>
-              <button onClick={() => setCurrentImage('bg_germany.png')}>Germany Img</button>
-            </div>
-          </div>
+  density(){
+    const s = this.state;
+    return s.pop / Math.max(1, s.housingCap);
+  }
 
-          {/* WORKSPACE */}
-          <div className="workspace" style={{backgroundImage: `url('${currentImage}')`}}>
-            
-            {/* 1. SCROLL ZONE */}
-            <Zone name="scroll">
-              <div className="scroll-text">
-                Mission Objective<br/>
-                "Print 50 Copies"
-              </div>
-            </Zone>
+  moveCost(){
+    const s = this.state;
+    const base = this.safe(TUNING.MOVE_COST_BASE, 14);
+    const settledFactor = this.safe(TUNING.MOVE_COST_SETTLED, 0.95);
+    const floor = this.safe(TUNING.MOVE_COST_FLOOR, 12);
+    
+    const cost = base + Math.floor(s.settled * settledFactor);
+    return Math.max(floor, cost);
+  }
 
-            {/* 2. DESK ZONE */}
-            <Zone name="desk">
-               {/* Example Blocks placed on desk */}
-               <div style={{display:'flex', gap:'5px', padding:'10px', border:'2px solid rgba(0,0,0,0.2)'}}>
-                 <div className="type-block">A</div>
-                 <div className="type-block">B</div>
-                 <div className="type-block">C</div>
-               </div>
-            </Zone>
+  settlementBoom(){
+    const s = this.state;
+    const delay = this.safe(TUNING.BOOM_START_DELAY, 4);
+    const max = this.safe(TUNING.BOOM_MAX, 0.65);
+    const rate = this.safe(TUNING.BOOM_PER_TURN, 0.006);
 
-            {/* 3. DRAWER ZONE */}
-            <Zone name="drawer">
-               <div className="drawer-grid">
-                  <div className="type-block">A</div>
-                  <div className="type-block">B</div>
-                  <div className="type-block">C</div>
-                  <div className="type-block">D</div>
-               </div>
-            </Zone>
+    const t = Math.max(0, s.turnsSinceMove - delay);
+    const boom = Math.min(max, t * rate);
+    return 1 + boom; 
+  }
 
-             {/* 4. SHELF ZONE */}
-             <Zone name="shelf">
-               <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
-                  <div style={{background:'#5d4037', padding:'5px', color:'white'}}>Book 1</div>
-                  <div style={{background:'#5d4037', padding:'5px', color:'white'}}>Book 2</div>
-               </div>
-            </Zone>
+  farmMultiplier(){
+    const s = this.state;
+    const sq = this.clamp(s.squalor,0,100)/100;
+    const land = this.clamp(s.land,0,100)/100;
+    
+    const sqHit = this.safe(TUNING.FARM_SQUALOR_HIT, 0.20);
+    const landHit = this.safe(TUNING.FARM_LAND_HIT, 0.35);
 
-          </div>
+    const sqMult = 1 - (sq * sqHit);
+    const landMult = 1 - ((1 - land) * landHit);
+    return Math.max(0.25, sqMult * landMult);
+  }
 
-          {/* --- CALIBRATOR PANEL (Floating) --- */}
-          <div className="calibrator">
-            <h3 style={{marginTop:0, borderBottom:'1px solid lime'}}>🔧 TUNING MODE</h3>
-            <label>
-              <input type="checkbox" checked={tuningMode} onChange={e => setTuningMode(e.target.checked)} />
-              Show Grid / Edit
-            </label>
-            
-            {tuningMode && (
-              <>
-                <div style={{margin:'10px 0', padding:'5px', background:'#333'}}>
-                  Edit Zone: 
-                  <select value={selectedZone} onChange={e => setSelectedZone(e.target.value)} style={{marginLeft:'5px'}}>
-                    <option value="scroll">Scroll (Top Left)</option>
-                    <option value="desk">Desk (Center)</option>
-                    <option value="drawer">Drawers (Bottom)</option>
-                    <option value="shelf">Shelf (Right)</option>
-                  </select>
-                </div>
+  huntMultiplier(){
+    const s = this.state;
+    const sq = this.clamp(s.squalor,0,100)/100;
+    const land = this.clamp(s.land,0,100)/100;
+    
+    const sqHit = this.safe(TUNING.HUNT_SQUALOR_HIT, 0.75);
+    const landHit = this.safe(TUNING.HUNT_LAND_HIT, 0.85);
 
-                <label>Top % <span className="val">{layout[selectedZone].top}</span></label>
-                <input type="range" min="0" max="100" step="0.5" 
-                       value={layout[selectedZone].top} 
-                       onChange={e => updateLayout('top', e.target.value)} />
+    const sqMult = 1 - (sq * sqHit);
+    const landMult = 1 - ((1 - land) * landHit);
+    return Math.max(0.05, sqMult * landMult);
+  }
 
-                <label>Left % <span className="val">{layout[selectedZone].left}</span></label>
-                <input type="range" min="0" max="100" step="0.5" 
-                       value={layout[selectedZone].left} 
-                       onChange={e => updateLayout('left', e.target.value)} />
+  action(type){
+    const s = this.state;
+    if(s.pop <= 0) return;
 
-                <label>Width % <span className="val">{layout[selectedZone].width}</span></label>
-                <input type="range" min="5" max="100" step="0.5" 
-                       value={layout[selectedZone].width} 
-                       onChange={e => updateLayout('width', e.target.value)} />
+    if(type === "hunt"){
+      let take = 0;
+      if(Game.worldMammoths > 0){
+        const attempt = Math.floor((s.pop / 10.0) * (0.9 + Math.random()*0.6));
+        take = this.clamp(attempt, 0, 2); 
+        take = Math.min(take, Game.worldMammoths);
+        if(take === 0 && s.deer < 30 && Math.random() > 0.6) take = 1;
+        take = Math.min(take, Game.worldMammoths);
+      }
 
-                <label>Height % <span className="val">{layout[selectedZone].height}</span></label>
-                <input type="range" min="5" max="100" step="0.5" 
-                       value={layout[selectedZone].height} 
-                       onChange={e => updateLayout('height', e.target.value)} />
+      const mammothYield = this.safe(TUNING.MAMMOTH_YIELD, 120);
+      const mammothFood = take * mammothYield;
 
-                <div style={{marginTop:'15px', fontSize:'0.7rem', color:'#aaa'}}>
-                  * Adjust sliders until the green box matches your image artwork.
-                </div>
-              </>
-            )}
-          </div>
-
-        </div>
+      const deerYield = this.safe(TUNING.DEER_YIELD_PER_HUNTER, 5.8);
+      const deerLuck = 0.85 + Math.random()*0.35;
+      const deerFood = Math.floor(
+        s.pop * deerYield * (s.deer/100) * deerLuck * this.huntMultiplier()
       );
+
+      const total = mammothFood + deerFood;
+      s.food += total;
+
+      const deerDepletion = this.safe(TUNING.DEER_DEPLETION_PER_HUNTER, 1.75);
+      const deerDmg = (s.pop * deerDepletion) + (take * 7);
+      s.deer = Math.max(0, s.deer - deerDmg);
+
+      if(take > 0){
+        Game.worldMammoths = Math.max(0, Game.worldMammoths - take);
+        this.spawnFloater(`+${mammothFood} 🦣`, "stone");
+
+        const risk = this.safe(TUNING.MAMMOTH_RISK, 0.18);
+        if(Math.random() < risk){
+          const dead = Math.max(1, Math.ceil(s.pop * 0.06));
+          s.pop = Math.max(0, s.pop - dead);
+          this.log(`MAMMOTH HUNT! ${dead} died.`, "text-red-800 font-bold");
+          this.spawnFloater(`-${dead} ⚔️`, "red");
+        }
+
+        this.log(`Hunt! Took ${take} mammoth${take>1?"s":""} (+${mammothFood}) and gathered ${deerFood} deer-meat.`, "text-green-800");
+        this.log(`Mammoths remaining worldwide: ${Game.worldMammoths}.`, "text-stone-700");
+
+        if(Game.worldMammoths === 0 && !Game.worldExtinctLogged){
+          Game.worldExtinctLogged = true;
+          this.log("The last mammoth falls. They will not return.", "text-stone-900 font-bold");
+          this.spawnFloater("🦣 EXTINCT", "red");
+        }
+      } else {
+        this.log(`Hunt! Deer-meat: ${deerFood}.${Game.worldMammoths===0 ? " (No mammoths remain.)" : ""}`, deerFood>0 ? "text-green-700" : "text-amber-700");
+      }
+
+      const cap = this.getTotalStorage();
+      if(s.food > cap){ s.food = cap; this.spawnFloater("Max Load!", "stone"); }
+
+      this.endTurn();
+      return;
     }
 
-    ReactDOM.render(<App />, document.getElementById('root'));
-  </script>
+    if(type === "farm"){
+      if(s.farms >= s.pop){
+        this.log(`Farm limit reached: Farms (${s.farms}) cannot exceed Population (${s.pop}).`, "text-amber-800 font-bold");
+        this.shake();
+        return;
+      }
+
+      const labor = Math.floor(s.pop);
+      const laborBase = this.safe(TUNING.FARM_LABOR_BASE, 48);
+      const laborScale = this.safe(TUNING.FARM_LABOR_SCALE, 16);
+      
+      const req = laborBase + (s.farms * laborScale);
+      s.farmProgress += labor;
+
+      let made = Math.floor(s.farmProgress / req);
+      made = Math.min(made, s.pop - s.farms);
+
+      if(made > 0){
+        s.farms += made;
+        s.farmProgress = s.farmProgress % req;
+        this.log(`Expanded farms: +${made}. (Total farms: ${s.farms})`, "text-amber-700");
+        this.spawnFloater(`+${made} 🌾`, "amber");
+        s.settled = this.clamp(s.settled + made * 2.2, 0, 100);
+      } else {
+        this.log(`Worked fields (${Math.floor((s.farmProgress/req)*100)}%).`, "text-amber-700");
+        s.settled = this.clamp(s.settled + 0.6, 0, 100);
+      }
+
+      s.land = Math.max(0, s.land - (0.35 + (made*0.25)));
+
+      this.endTurn();
+      return;
+    }
+
+    if(type === "build"){
+      const buildCost = this.safe(TUNING.BUILD_COST_PER_POP, 0.55);
+      const cost = Math.ceil(s.pop * buildCost);
+      
+      if(s.food < cost){
+        this.log(`Need ${cost} food to build!`, "text-red-600");
+        this.shake();
+        return;
+      }
+
+      s.food -= cost;
+      s.housingCap += this.safe(TUNING.BUILD_HOUSING_GAIN, 5);
+      s.baseStorage += this.safe(TUNING.BUILD_STORAGE_GAIN, 40);
+      s.builds += 1;
+
+      s.settled = this.clamp(s.settled + 6.0, 0, 100);
+      s.land = Math.max(0, s.land - 1.0);
+
+      const gainH = this.safe(TUNING.BUILD_HOUSING_GAIN, 5);
+      const gainS = this.safe(TUNING.BUILD_STORAGE_GAIN, 40);
+      this.log(`Built shelters (+${gainH} cap) and storage (+${gainS}).`, "text-stone-700");
+      this.spawnFloater("+Shelter", "stone");
+
+      this.endTurn();
+      return;
+    }
+
+    if(type === "move"){
+      const cost = this.moveCost();
+      if(s.food < cost){
+        this.ui.failCost.innerText = cost;
+        this.ui.failHave.innerText = Math.floor(s.food);
+        this.ui.failMsg.classList.remove('hidden');
+        setTimeout(()=>this.ui.failMsg.classList.add('hidden'), 2500);
+        this.shake();
+        return;
+      }
+
+      s.food -= cost;
+
+      s.deer = 100;
+      s.land = 100;
+
+      s.farms = 0;
+      s.farmProgress = 0;
+      s.builds = 0;
+
+      s.squalor = 0;
+      s.housingCap = this.safe(TUNING.INIT_HOUSING, 15);
+      s.baseStorage = this.safe(TUNING.INIT_STORAGE, 40);
+      s.settled = 0;
+
+      s.turnsSinceMove = 0; 
+
+      this.log(`Migrated (-${cost} food). Fresh land returns. Mammoths worldwide: ${Game.worldMammoths}.`, "text-blue-700");
+      this.spawnFloater("New Land!", "blue");
+
+      this.render();
+      return;
+    }
+  }
+
+  endTurn(){
+    const s = this.state;
+    s.turnsSinceMove += 1;
+
+    // Eat
+    const eatRate = this.safe(TUNING.POP_EAT_RATE, 1.15);
+    const eat = Math.ceil(s.pop * eatRate);
+    s.food -= eat;
+
+    // Farm upkeep
+    if(s.farms > 0){
+      const farmUpkeep = this.safe(TUNING.FARM_UPKEEP_PER_FARM, 0.25);
+      const upkeep = Math.ceil(s.farms * farmUpkeep);
+      s.food -= upkeep;
+      if(upkeep > 0 && Math.random() > 0.6) this.spawnFloater(`-${upkeep} Seed`, "amber");
+    }
+
+    // Farm yield (NEW: With Improvement over time)
+    if(s.farms > 0){
+      const mult = this.farmMultiplier();
+      const baseYield = this.safe(TUNING.FARM_YIELD_PER_FARM, 10);
+      const yieldGrowth = this.safe(TUNING.FARM_YIELD_GROWTH_PER_TURN, 0.0);
+      
+      // Calculate innovation bonus based on time settled
+      const innovationBonus = 1 + (s.turnsSinceMove * yieldGrowth);
+      
+      const yieldAmt = Math.floor(s.farms * baseYield * innovationBonus * mult);
+
+      const cap = this.getTotalStorage();
+      const space = cap - s.food;
+      const add = Math.max(0, Math.min(space, yieldAmt));
+      s.food += add;
+
+      if(add > 0) this.spawnFloater(`+${add} Crop`, "amber");
+    }
+
+    // Land decay
+    const popThresh = this.safe(TUNING.LAND_POP_THRESHOLD, 25);
+    const popPressure = Math.max(0, s.pop - popThresh);
+    
+    const landLoss =
+      (s.farms * this.safe(TUNING.LAND_DECAY_FROM_FARMS, 0.65)) +
+      (s.builds * this.safe(TUNING.LAND_DECAY_FROM_BUILD, 1.10)) +
+      (popPressure * this.safe(TUNING.LAND_DECAY_FROM_POP, 0.03));
+
+    const light = (s.farms <= 2 && s.builds <= 1 && s.pop <= 20);
+    const recoveryVal = this.safe(TUNING.LAND_RECOVERY, 0.8);
+    const recovery = light ? recoveryVal : 0;
+
+    s.land = this.clamp(s.land - landLoss + recovery, 0, 100);
+
+    // Deer regen
+    const deerCeiling = Math.min(s.land, 100);
+    const regenVal = this.safe(TUNING.DEER_BASE_REGEN, 2.2);
+    const regen = regenVal * (s.land/100);
+    s.deer = Math.min(deerCeiling, Math.max(0, s.deer + regen));
+
+    // Squalor (NEW: With Speed and Threshold tuning)
+    const d = this.density();
+    let sqDelta = 0;
+    
+    // Check threshold (Defaults to 0.9 if not set)
+    const crowdStart = this.safe(TUNING.SQUALOR_CROWDING_START, 0.9);
+    
+    if(d > crowdStart) {
+        const crowdMult = this.safe(TUNING.OVERCROWD_SQUALOR_MULT, 16);
+        sqDelta += (d - crowdStart) * crowdMult;
+    }
+    
+    sqDelta += (s.farms * this.safe(TUNING.SQUALOR_FROM_FARMS, 0.45));
+    sqDelta += (s.builds * this.safe(TUNING.SQUALOR_FROM_BUILD, 0.70));
+    
+    if(light) sqDelta -= this.safe(TUNING.SQUALOR_DECAY_LIGHT, 0.25);
+    
+    // Apply Master Speed Scale
+    const sqSpeed = this.safe(TUNING.SQUALOR_GAIN_SPEED, 1.0);
+    if(sqDelta > 0) sqDelta *= sqSpeed;
+
+    s.squalor = this.clamp(s.squalor + sqDelta, 0, 100);
+
+    // Disease
+    const diseaseStart = this.safe(TUNING.DISEASE_START, 55);
+    if(s.squalor >= diseaseStart){
+      const chanceBase = this.safe(TUNING.DISEASE_CHANCE_BASE, 0.22);
+      const chance = chanceBase + ((s.squalor - diseaseStart) / (100 - diseaseStart)) * 0.35;
+
+      if(Math.random() < chance){
+        const t = this.clamp((s.squalor - diseaseStart) / (100 - diseaseStart), 0, 1);
+        const deathMin = this.safe(TUNING.DISEASE_DEATH_BASE, 0.02);
+        const deathMax = this.safe(TUNING.DISEASE_DEATH_MAX, 0.10);
+        const deathRate = deathMin + t * (deathMax - deathMin);
+        
+        const dead = Math.max(1, Math.floor(s.pop * deathRate));
+        s.pop = Math.max(0, s.pop - dead);
+        this.log(`DISEASE WAVE! ${dead} died.`, "text-red-800 font-bold");
+        this.spawnFloater(`-${dead} ☠️`, "red");
+        
+        const spike = this.safe(TUNING.DISEASE_SPIKE, 80);
+        if(s.squalor >= spike){
+          this.log("The air is foul. Coughing becomes constant.", "text-stone-900 font-bold");
+        }
+      }
+    }
+
+    // Starvation
+    if(s.food < 0){
+      const starved = Math.ceil(Math.abs(s.food) / 5);
+      s.pop = Math.max(0, s.pop - starved);
+      s.food = 0;
+      this.log(`${starved} starved.`, "text-red-800 font-bold");
+      this.spawnFloater(`-${starved} Starve`, "red");
+    }
+
+    // Exposure
+    const exposureRate = 0.18; 
+    if(s.pop > s.housingCap){
+      const exposed = s.pop - s.housingCap;
+      const rate = exposureRate + (s.squalor / 400);
+      const dead = Math.max(1, Math.ceil(exposed * rate));
+      s.pop = Math.max(0, s.pop - dead);
+      this.log(`EXPOSURE! ${dead} died without shelter.`, "text-red-800 font-bold");
+      this.spawnFloater(`-${dead} Cold`, "red");
+    }
+
+    // Settledness
+    if(s.farms > 0 || s.builds > 0){
+      let add = Math.min(4.0, (s.farms * 0.22) + (s.builds * 0.8));
+      if(s.food < eat * 0.85) add += 1.2; 
+      s.settled = this.clamp(s.settled + add, 0, 100);
+      if(Math.random() > 0.84) this.log("You are rooted. Leaving would be unthinkable.", "text-stone-700");
+    } else {
+      s.settled = this.clamp(s.settled - 0.35, 0, 100); 
+    }
+
+    // Growth
+    const cap = this.getTotalStorage();
+    const foodStrong = s.food > eat * 1.15 && s.food > cap * 0.22;
+
+    if(foodStrong){
+      const farmBoostVal = this.safe(TUNING.GROWTH_FARM_BOOST, 0.0016);
+      const farmBoost = 1 + (s.farms * farmBoostVal);
+      
+      const sqPenVal = this.safe(TUNING.GROWTH_SQUALOR_PENALTY, 0.18);
+      const sqPenalty = 1 - (this.clamp(s.squalor,0,100)/100) * sqPenVal;
+      const boom = this.settlementBoom();
+
+      const baseRate = this.safe(TUNING.GROWTH_BASE_RATE, 1.07);
+      const growthRate = baseRate * farmBoost * Math.max(0.55, sqPenalty) * boom;
+
+      let births = Math.floor(s.pop * (growthRate - 1));
+      if(births < 1) births = 1;
+      if(Math.random() < 0.18) births += 1;
+
+      s.pop += births;
+      this.log(`Births! +${births} (settled ${s.turnsSinceMove} turns)`, "text-blue-700");
+      this.spawnFloater(`+${births} Pop`, "blue");
+    }
+
+    // Advance
+    s.season = (s.season + 1) % 4;
+    if(s.season === 0) s.turn++;
+
+    if(s.land < 25 && Math.random() > 0.75) this.log("The land is exhausted. The wild vanishes.", "text-amber-900 font-bold");
+    if(s.deer < 15 && Math.random() > 0.75) this.log("The hunt is thin. Hoofprints fade.", "text-amber-900 font-bold");
+
+    this.render();
+    if(s.pop === 0) this.triggerGameOver();
+  }
+
+  triggerGameOver(){
+    this.ui.finalYear.innerText = this.state.turn;
+    this.ui.gameOverScreen.classList.remove('hidden');
+  }
+
+  render(){
+    const s = this.state;
+    const cap = this.getTotalStorage();
+    const mv = this.moveCost();
+
+    this.ui.pop.innerText = s.pop;
+    this.ui.housing.innerText = s.housingCap;
+    this.ui.food.innerText = Math.floor(s.food);
+    this.ui.storage.innerText = cap;
+    this.ui.year.innerText = s.turn;
+    this.ui.season.innerText = ['Spring','Summer','Autumn','Winter'][s.season];
+
+    this.ui.moveCostText.innerText = `Cost: ${mv}`;
+    if(s.food < mv){
+      this.ui.moveCostText.classList.remove('text-blue-600');
+      this.ui.moveCostText.classList.add('text-red-500');
+    } else {
+      this.ui.moveCostText.classList.remove('text-red-500');
+      this.ui.moveCostText.classList.add('text-blue-600');
+    }
+
+    if(s.food >= cap){
+      this.ui.storageWarn.classList.remove('hidden');
+      this.ui.storageWarn.innerText = "STORAGE FULL";
+    } else {
+      this.ui.storageWarn.classList.add('hidden');
+    }
+
+    const landN = this.clamp(s.land,0,100)/100;
+    const deerN = this.clamp(s.deer,0,100)/100;
+    const ecoIndex = this.clamp((0.55 * landN + 0.45 * deerN), 0, 1);
+
+    const ls = this.ui.landscape;
+    ls.className = "landscape-container w-full h-[50vh] md:h-[60vh]";
+    if(ecoIndex <= 0.22) ls.classList.add('bg-dead');
+    else if(ecoIndex <= 0.55) ls.classList.add('bg-depleted');
+    else ls.classList.add('bg-lush');
+
+    const sq = this.clamp(s.squalor,0,100)/100;
+    this.ui.squalorFx.style.opacity = (sq < 0.15) ? 0 : this.clamp((sq - 0.15) * 1.1, 0, 0.92);
+    this.ui.sickTint.style.opacity  = (sq < 0.35) ? 0 : this.clamp((sq - 0.35) * 1.2, 0, 0.55);
+
+    this.ui.entities.innerHTML = "";
+    const spawn = (html, x, y, z, cls="") => {
+      const el = document.createElement('div');
+      el.className = `entity animate-grow ${cls}`;
+      el.innerHTML = html;
+      el.style.left = x + "%";
+      el.style.bottom = y + "%";
+      el.style.zIndex = z;
+      this.ui.entities.appendChild(el);
+    };
+
+    for(let i=0;i<Math.min(28,s.pop);i++){
+      spawn(`<i class="fas fa-person text-stone-800 text-2xl animate-bob"></i>`, 10+Math.random()*80, 5+Math.random()*20, 50);
+    }
+
+    if(s.squalor > 35){
+      const sickCount = Math.min(10, 1 + Math.floor((s.squalor-30)/7));
+      for(let i=0;i<sickCount;i++){
+        spawn(`<span style="font-size:20px; opacity:0.9;">🤢</span>`, 12+Math.random()*76, 10+Math.random()*16, 70, "animate-bob");
+      }
+      const flies = Math.min(10, 1 + Math.floor((s.squalor-30)/8));
+      for(let i=0;i<flies;i++){
+        spawn(`<span style="font-size:18px; opacity:0.75;">🪰</span>`, 18+Math.random()*64, 10+Math.random()*14, 71, "animate-bob");
+      }
+    }
+    if(s.squalor > 70){
+      const rats = Math.min(7, 1 + Math.floor((s.squalor-70)/6));
+      for(let i=0;i<rats;i++){
+        spawn(`<span style="font-size:20px; opacity:0.85;">🐀</span>`, 15+Math.random()*70, 8+Math.random()*10, 72, "animate-bob");
+      }
+      const trash = Math.min(8, 1 + Math.floor((s.squalor-70)/8));
+      for(let i=0;i<trash;i++){
+        spawn(`<span style="font-size:20px; opacity:0.85;">🗑️</span>`, 18+Math.random()*64, 8+Math.random()*10, 73);
+      }
+    }
+
+    const settled = this.clamp(s.settled,0,100);
+    const houseIcon = (s.farms >= 3 || settled > 30 || s.housingCap >= 25) ? "fa-house-chimney" : "fa-campground";
+    const houseCount = Math.min(16, Math.ceil(s.housingCap/2) + Math.floor(settled/22));
+    for(let i=0;i<houseCount;i++){
+      spawn(`<i class="fas ${houseIcon} text-stone-700 text-3xl"></i>`, 5+Math.random()*90, 14+Math.random()*16, 20);
+    }
+
+    for(let i=0;i<Math.min(18,s.farms);i++){
+      spawn(`<i class="fas fa-wheat-awn text-amber-300 text-3xl drop-shadow"></i>`, 8+(i*5.2), 10, 60);
+    }
+
+    if(s.land < 45){
+      const stumps = Math.min(12, 2 + Math.floor((45 - s.land)/3));
+      for(let i=0;i<stumps;i++){
+        spawn(`<span style="font-size:20px; opacity:0.85;">🪵</span>`, 10+Math.random()*80, 22+Math.random()*18, 9);
+      }
+    }
+    if(s.land < 20){
+      const bones = Math.min(8, 1 + Math.floor((20 - s.land)/3));
+      for(let i=0;i<bones;i++){
+        spawn(`<span style="font-size:22px; opacity:0.75;">🦴</span>`, 15+Math.random()*70, 26+Math.random()*18, 33);
+      }
+    }
+
+    const trees = Math.max(0, Math.ceil(s.land / 10));
+    for(let i=0;i<trees;i++){
+      spawn(`<i class="fas fa-tree text-green-900 text-4xl opacity-80"></i>`, Math.random()*90, 25+Math.random()*30, 10);
+    }
+
+    const showWildlife = (s.deer >= 25 && s.land >= 20);
+    if(showWildlife){
+      const deerCount = Math.min(7, 1 + Math.floor(s.deer/15));
+      for(let i=0;i<deerCount;i++){
+        const delay = (Math.random()*1.8).toFixed(2);
+        const size = 18 + Math.floor(Math.random()*10);
+        spawn(
+          `<span style="font-size:${size}px; filter:drop-shadow(1px 1px 0 rgba(255,255,255,.5)); animation-delay:${delay}s;">🦌</span>`,
+          8 + Math.random()*75, 24 + Math.random()*22, 35, "animate-hop"
+        );
+      }
+
+      if(Game.worldMammoths > 0){
+        const mamCount = Math.min(2, 1 + Math.floor(Game.worldMammoths/6));
+        for(let i=0;i<mamCount;i++){
+          const delay = (Math.random()*2.1).toFixed(2);
+          const size = 24 + Math.floor(Math.random()*12);
+          spawn(
+            `<span style="font-size:${size}px; filter:drop-shadow(1px 1px 0 rgba(255,255,255,.5)); animation-delay:${delay}s;">🦣</span>`,
+            10 + Math.random()*68, 22 + Math.random()*20, 34, "animate-lumber"
+          );
+        }
+      }
+    } else if(s.deer < 25){
+      const bonesFew = Math.min(6, 1 + Math.floor((25 - s.deer)/5));
+      for(let i=0;i<bonesFew;i++){
+        spawn(`<span style="font-size:22px; opacity:0.65;">🦴</span>`, 18+Math.random()*64, 26+Math.random()*18, 33);
+      }
+    }
+  }
+
+  shake(){
+    this.ui.container.classList.add('shake-screen');
+    setTimeout(()=>this.ui.container.classList.remove('shake-screen'), 500);
+  }
+
+  spawnFloater(text, color){
+    const el = document.createElement('div');
+    el.innerText = text;
+    el.className = `floater text-${color}-600 text-2xl`;
+    el.style.left = "50%";
+    el.style.top = "40%";
+    el.style.transform = "translateX(-50%)";
+    this.ui.landscape.appendChild(el);
+    setTimeout(()=>el.remove(), 2000);
+  }
+
+  log(text, color){
+    const div = document.createElement('div');
+    div.className = `mb-2 pb-1 border-b border-stone-300 ${color}`;
+    div.innerHTML = `<span class="text-xs text-stone-400 mr-1">[Y${this.state.turn}]</span> ${text}`;
+    this.ui.log.prepend(div);
+  }
+}
+
+window.onload = ()=>{ window.game = new Game(); };
+</script>
 </body>
 </html>
