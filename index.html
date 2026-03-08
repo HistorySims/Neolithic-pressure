@@ -3,162 +3,326 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>Neolithic: Carrying Capacity (Tunable v2)</title>
+  <title>Neolithic: Carrying Capacity</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lato:wght@400;700&display=swap');
-    body { font-family:'Lato',sans-serif; -webkit-tap-highlight-color:transparent; }
-    h1,h2,h3,.cinzel { font-family:'Cinzel',serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap');
 
-    .landscape-container{ position:relative; overflow:hidden; transition:background 1s ease; min-height:420px; }
-    .entity{ position:absolute; transition:all .5s ease-out; }
-    .animate-bob{ animation:bob 2s infinite ease-in-out; }
-    .animate-grow{ animation:grow .4s cubic-bezier(.175,.885,.32,1.275) forwards; }
-    .shake-screen{ animation:shake .4s ease-in-out; }
-    .floater{ position:absolute; animation:float-up 2s forwards; pointer-events:none; font-weight:700; z-index:50; text-shadow:1px 1px 0 #fff; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+    .cinzel { font-family: 'Cinzel', serif; }
 
-    @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-    @keyframes float-up{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}
-    @keyframes grow{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
-    @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+    /* ── Landscape sky layers (season-based) ── */
+    .sky-spring { background: linear-gradient(to bottom, #7EC8E3 0%, #AEE8CC 55%, #B8EFA0 100%); }
+    .sky-summer { background: linear-gradient(to bottom, #1B4FD8 0%, #3B82F6 45%, #6ECA90 100%); }
+    .sky-autumn { background: linear-gradient(to bottom, #9A3412 0%, #EA580C 35%, #FBBF24 72%, #8B6840 100%); }
+    .sky-winter { background: linear-gradient(to bottom, #1E293B 0%, #475569 50%, #94A3B8 100%); }
 
-    @keyframes hop{
-      0%{transform:translate(0,0) scale(1);opacity:0}
-      10%{opacity:1}
-      40%{transform:translate(18px,-10px) scale(1.02)}
-      70%{transform:translate(34px,0) scale(1)}
-      100%{transform:translate(55px,-6px) scale(1);opacity:0}
+    /* ── Ground overlay (ecology-based) ── */
+    .ground-lush   { background: linear-gradient(to top, #14532D 0%, #166534 35%, #15803D 65%, transparent 100%); }
+    .ground-sparse { background: linear-gradient(to top, #78350F 0%, #92400E 30%, #A16207 58%, transparent 100%); }
+    .ground-dead   { background: linear-gradient(to top, #292524 0%, #44403C 30%, #78716C 58%, transparent 100%); }
+
+    .landscape-container { position: relative; overflow: hidden; min-height: 360px; transition: background 2s ease; }
+    .landscape-ground { position: absolute; bottom: 0; left: 0; right: 0; height: 44%; pointer-events: none; transition: background 2s ease; z-index: 4; }
+
+    /* ── Entity styles ── */
+    .entity { position: absolute; transition: all .5s ease-out; }
+    .animate-bob   { animation: bob 2.2s infinite ease-in-out; }
+    .animate-grow  { animation: grow .4s cubic-bezier(.175,.885,.32,1.275) forwards; }
+    .animate-sway  { animation: sway 3.5s infinite ease-in-out; }
+    .shake-screen  { animation: shake .45s ease-in-out; }
+
+    .floater {
+      position: absolute;
+      animation: float-up 2.2s forwards;
+      pointer-events: none;
+      font-weight: 700;
+      z-index: 55;
+      padding: 2px 9px;
+      border-radius: 20px;
+      font-size: 13px;
+      white-space: nowrap;
+      backdrop-filter: blur(4px);
+      letter-spacing: 0.03em;
     }
-    .animate-hop{ animation:hop 2.2s ease-in-out infinite; }
 
-    @keyframes lumber{
-      0%{transform:translate(0,0) scale(1);opacity:0}
-      12%{opacity:1}
-      55%{transform:translate(26px,-2px) scale(1.01)}
-      100%{transform:translate(58px,0) scale(1);opacity:0}
+    @keyframes bob       { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+    @keyframes sway      { 0%,100%{transform:rotate(-2.5deg)} 50%{transform:rotate(2.5deg)} }
+    @keyframes float-up  { 0%{opacity:1;transform:translateY(0) translateX(-50%)} 100%{opacity:0;transform:translateY(-50px) translateX(-50%)} }
+    @keyframes grow      { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+    @keyframes shake     { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)} 40%{transform:translateX(7px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+
+    @keyframes hop {
+      0%  {transform:translate(0,0);opacity:0}
+      10% {opacity:1}
+      40% {transform:translate(20px,-13px)}
+      70% {transform:translate(38px,0)}
+      100%{transform:translate(62px,-6px);opacity:0}
     }
-    .animate-lumber{ animation:lumber 2.8s ease-in-out infinite; }
+    .animate-hop { animation: hop 2.4s ease-in-out infinite; }
 
-    /* Visible squalor haze */
-    .squalor-overlay{
+    @keyframes lumber {
+      0%  {transform:translate(0,0);opacity:0}
+      12% {opacity:1}
+      55% {transform:translate(28px,-3px)}
+      100%{transform:translate(64px,0);opacity:0}
+    }
+    .animate-lumber { animation: lumber 3.1s ease-in-out infinite; }
+
+    @keyframes cloud-drift { 0%{transform:translateX(0)} 100%{transform:translateX(60px)} }
+    .animate-cloud { animation: cloud-drift 22s linear infinite alternate; }
+
+    @keyframes flash-red  { 0%,100%{opacity:0} 30%{opacity:1} }
+    @keyframes flash-blue { 0%,100%{opacity:0} 30%{opacity:1} }
+    .flash-danger { animation: flash-red  .55s ease-in-out; background: rgba(220,38,38,.22); }
+    .flash-move   { animation: flash-blue .55s ease-in-out; background: rgba(37,99,235,.18); }
+
+    /* ── Squalor haze ── */
+    .squalor-overlay {
       position:absolute; inset:0;
       background:
-        radial-gradient(circle at 40% 35%, rgba(0,0,0,0) 35%, rgba(28,25,23,0.85) 100%),
-        radial-gradient(circle at 70% 60%, rgba(0,0,0,0) 45%, rgba(17,24,39,0.55) 100%);
-      pointer-events:none; opacity:0; transition:opacity 1s; z-index:20;
+        radial-gradient(circle at 38% 32%, rgba(0,0,0,0) 30%, rgba(20,17,14,.92) 100%),
+        radial-gradient(circle at 72% 64%, rgba(0,0,0,0) 40%, rgba(15,20,30,.6) 100%);
+      pointer-events:none; opacity:0; transition:opacity 1.2s; z-index:20;
       mix-blend-mode:multiply;
     }
-    .sick-tint{
+    .sick-tint {
       position:absolute; inset:0;
-      background: radial-gradient(circle at 50% 60%, rgba(34,197,94,0.0) 35%, rgba(34,197,94,0.22) 100%);
-      pointer-events:none; opacity:0; transition:opacity 1s; z-index:21;
+      background: radial-gradient(circle at 50% 58%, rgba(34,197,94,0) 30%, rgba(34,197,94,.3) 100%);
+      pointer-events:none; opacity:0; transition:opacity 1.2s; z-index:21;
       mix-blend-mode:overlay;
     }
 
-    .bg-lush{ background:linear-gradient(to bottom,#86efac 0%,#15803d 100%); }
-    .bg-depleted{ background:linear-gradient(to bottom,#fde047 0%,#a16207 100%); }
-    .bg-dead{ background:linear-gradient(to bottom,#d6d3d1 0%,#78716c 100%); }
+    /* ── Vignette ── */
+    .landscape-vignette {
+      position:absolute; inset:0; pointer-events:none; z-index:6;
+      background: radial-gradient(ellipse at 50% 50%, transparent 52%, rgba(0,0,0,.42) 100%);
+    }
 
-    .btn-action:active{ transform:scale(.95); }
+    /* ── Stat bars ── */
+    .stat-bar-track { height:5px; border-radius:3px; background:rgba(255,255,255,.1); overflow:hidden; }
+    .stat-bar-fill  { height:100%; border-radius:3px; transition:width .6s ease, background-color .6s ease; }
+
+    /* ── Stat cards ── */
+    .stat-card {
+      background: rgba(10,6,2,.78);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 10px;
+      padding: 9px 13px;
+      color: white;
+    }
+
+    /* ── Action buttons ── */
+    .btn-action { transition: transform .12s, box-shadow .2s; cursor: pointer; }
+    .btn-action:hover  { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+    .btn-action:active { transform: scale(.94); box-shadow: none; }
+
+    /* ── Log ── */
+    #log::-webkit-scrollbar { width: 4px; }
+    #log::-webkit-scrollbar-track { background: transparent; }
+    #log::-webkit-scrollbar-thumb { background: #44403c; border-radius: 2px; }
   </style>
 </head>
 
-<body class="bg-stone-900 flex flex-col items-center justify-start p-4 text-stone-800 min-h-screen">
+<body class="bg-stone-950 flex flex-col items-center justify-start p-3 md:p-5 min-h-screen">
 
-<div id="game-container" class="w-full max-w-5xl bg-stone-100 rounded-xl shadow-2xl flex flex-col border-4 border-stone-800 relative">
+<div id="game-container" class="w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col relative overflow-hidden"
+     style="background:#0c0804; border:1px solid #2d1f10;">
 
-  <div id="game-over-screen" class="hidden absolute inset-0 bg-stone-900/95 z-[60] flex flex-col items-center justify-center text-white p-6 text-center animate-grow">
-    <i class="fas fa-skull text-6xl text-red-600 mb-4"></i>
-    <h1 class="text-4xl md:text-5xl text-red-500 mb-4 cinzel">EXTINCTION</h1>
-    <p class="text-xl mb-2">Nature could not sustain your numbers.</p>
-    <p class="text-stone-400 mb-8 font-mono">You survived for <span id="final-year" class="text-white font-bold">0</span> Years.</p>
-    <button onclick="location.reload()" class="px-8 py-3 bg-stone-100 hover:bg-white text-stone-900 rounded font-bold transition-transform hover:scale-105 active:scale-95 shadow-lg">
-      Try Again
+  <!-- ═══ GAME OVER ═══ -->
+  <div id="game-over-screen" class="hidden absolute inset-0 z-[60] flex flex-col items-center justify-center p-6 text-center animate-grow"
+       style="background:radial-gradient(ellipse at center,rgba(50,0,0,.98) 0%,rgba(5,2,0,.99) 100%);">
+    <div class="text-9xl mb-4" style="filter:drop-shadow(0 0 28px rgba(239,68,68,.85));">💀</div>
+    <h1 class="text-5xl md:text-6xl text-red-500 mb-3 cinzel" style="letter-spacing:.14em;">EXTINCTION</h1>
+    <p class="text-stone-400 text-base mb-1">Nature could not sustain your numbers.</p>
+    <p class="text-stone-500 mb-8 font-mono text-sm">
+      Your tribe endured for
+      <span id="final-year" class="text-amber-400 font-bold text-lg">0</span> years.
+    </p>
+    <button onclick="location.reload()"
+      class="cinzel px-10 py-3 rounded-lg font-bold tracking-widest text-sm transition-all hover:scale-105 active:scale-95 shadow-xl"
+      style="background:linear-gradient(135deg,#78350f,#92400e); color:#fde68a; border:1px solid #b45309;">
+      TRY AGAIN
     </button>
   </div>
 
-  <div class="bg-stone-800 text-stone-200 p-4 flex flex-col md:flex-row justify-between items-center z-30 shadow-md shrink-0 gap-2">
-    <div class="flex items-center gap-3">
-      <h1 class="text-xl md:text-2xl font-bold tracking-wider text-amber-500 cinzel">The Carrying Capacity</h1>
-    </div>
-    <div class="flex gap-4 font-mono text-sm md:text-base">
-      <div>Year <span id="ui-year" class="text-amber-400 font-bold">1</span></div>
-      <div id="ui-season" class="text-blue-300">Spring</div>
+  <!-- ═══ HEADER ═══ -->
+  <div class="flex flex-col md:flex-row justify-between items-center px-5 py-3 z-30 shrink-0 gap-2"
+       style="background:linear-gradient(to right,#150a02,#1f1208,#150a02); border-bottom:1px solid #2d1f10;">
+    <h1 class="cinzel text-base md:text-lg font-bold tracking-[.22em] text-amber-500 uppercase">
+      Neolithic: Carrying Capacity
+    </h1>
+    <div class="flex items-center gap-5 text-sm">
+      <div class="text-stone-400 font-mono">
+        Year <span id="ui-year" class="text-amber-400 font-bold text-base">1</span>
+      </div>
+      <div id="ui-season" class="cinzel font-semibold px-3 py-0.5 rounded text-xs tracking-widest uppercase"
+           style="background:rgba(255,255,255,.07); color:#cbd5e1;">Spring</div>
+      <div class="text-stone-500 text-xs font-mono" id="ui-mammoth-display">
+        🦣 ×<span id="ui-mammoths">8</span>
+      </div>
     </div>
   </div>
 
-  <div id="landscape" class="landscape-container bg-lush w-full h-[50vh] md:h-[60vh]">
-    <div class="absolute top-4 left-10 text-6xl text-white/30"><i class="fas fa-cloud"></i></div>
-    <div class="absolute top-10 right-20 text-4xl text-yellow-300/80 animate-bob"><i class="fas fa-sun"></i></div>
+  <!-- ═══ LANDSCAPE ═══ -->
+  <div id="landscape" class="landscape-container sky-spring w-full h-[48vh] md:h-[56vh]">
 
+    <!-- Clouds -->
+    <div id="cloud-layer" class="absolute inset-0 z-[3] pointer-events-none"></div>
+
+    <!-- Sun / moon -->
+    <div id="ui-celestial" class="absolute top-6 right-14 z-[4] pointer-events-none text-5xl animate-bob"
+         style="filter:drop-shadow(0 0 14px rgba(255,220,50,.9));">☀️</div>
+
+    <!-- Ground -->
+    <div id="landscape-ground" class="landscape-ground ground-lush"></div>
+
+    <!-- Squalor FX -->
     <div id="squalor-fx" class="squalor-overlay"></div>
     <div id="sick-tint" class="sick-tint"></div>
-    <div id="entities" class="absolute inset-0 z-10 p-8 pointer-events-none"></div>
 
-    <div class="absolute top-4 left-4 z-40 flex flex-col gap-2 pointer-events-none">
-      <div class="bg-white/90 backdrop-blur p-2 rounded border-l-4 border-blue-600 w-52 shadow-lg animate-grow">
-        <div class="text-[10px] text-stone-500 uppercase font-bold">Population</div>
-        <div class="text-xl font-bold flex items-center gap-2">
-          <i class="fas fa-users text-blue-600"></i>
-          <span id="ui-pop">10</span>
-          <span class="text-xs text-stone-400 font-normal">/ <span id="ui-housing">15</span> Cap</span>
+    <!-- Flash FX -->
+    <div id="flash-fx" class="absolute inset-0 z-[22] pointer-events-none rounded-none" style="opacity:0;transition:opacity .08s;"></div>
+
+    <!-- Entities -->
+    <div id="entities" class="absolute inset-0 z-[10] pointer-events-none"></div>
+
+    <!-- Vignette (on top) -->
+    <div class="landscape-vignette"></div>
+
+    <!-- ── HUD top-left ── -->
+    <div class="absolute top-3 left-3 z-40 flex flex-col gap-2 pointer-events-none">
+
+      <div class="stat-card animate-grow" style="min-width:155px;">
+        <div class="flex items-center gap-2 mb-1">
+          <i class="fas fa-users text-blue-400" style="font-size:10px;"></i>
+          <span class="text-[9px] text-stone-500 uppercase tracking-widest font-bold">Population</span>
+        </div>
+        <div class="flex items-baseline gap-1">
+          <span id="ui-pop" class="text-2xl font-bold text-white">10</span>
+          <span class="text-xs text-stone-600">/ <span id="ui-housing" class="text-stone-400">15</span> cap</span>
+        </div>
+        <div class="stat-bar-track mt-1.5">
+          <div id="bar-pop" class="stat-bar-fill bg-blue-500" style="width:67%"></div>
         </div>
       </div>
 
-      <div class="bg-white/90 backdrop-blur p-2 rounded border-l-4 border-amber-500 w-52 shadow-lg animate-grow" style="animation-delay:.08s">
-        <div class="text-[10px] text-stone-500 uppercase font-bold">Food Stores</div>
-        <div class="text-xl font-bold flex items-center gap-2">
-          <i class="fas fa-wheat text-amber-600"></i>
-          <span id="ui-food">55</span>
-          <span class="text-xs text-stone-400 font-normal">/ <span id="ui-storage">140</span></span>
+      <div class="stat-card animate-grow" style="animation-delay:.07s; min-width:155px;">
+        <div class="flex items-center gap-2 mb-1">
+          <i class="fas fa-drumstick-bite text-amber-400" style="font-size:10px;"></i>
+          <span class="text-[9px] text-stone-500 uppercase tracking-widest font-bold">Food Stores</span>
         </div>
-        <div id="storage-warn" class="hidden text-[10px] text-red-600 font-bold animate-pulse">STORAGE FULL</div>
+        <div class="flex items-baseline gap-1">
+          <span id="ui-food" class="text-2xl font-bold text-white">55</span>
+          <span class="text-xs text-stone-600">/ <span id="ui-storage" class="text-stone-400">140</span></span>
+        </div>
+        <div class="stat-bar-track mt-1.5">
+          <div id="bar-food" class="stat-bar-fill bg-amber-500" style="width:39%"></div>
+        </div>
+        <div id="storage-warn" class="hidden text-[9px] text-amber-400 font-bold mt-1 animate-pulse tracking-widest">⚠ STORES FULL</div>
       </div>
+
     </div>
 
-    <div id="fail-msg" class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-900/95 text-white p-6 rounded-xl text-center z-50 shadow-2xl border-2 border-red-500 animate-grow w-3/4 md:w-auto">
-      <i class="fas fa-lock text-4xl mb-3 text-red-300"></i>
-      <div class="font-bold text-xl mb-2 text-red-100">CANNOT MOVE</div>
-      <div class="text-sm">Travel Cost: <span id="fail-cost" class="font-bold">0</span> Food</div>
-      <div class="text-sm">You Have: <span id="fail-have" class="font-bold text-red-300">0</span> Food</div>
+    <!-- ── HUD bottom-right ecology ── -->
+    <div class="absolute bottom-3 right-3 z-40 flex flex-col gap-1.5 pointer-events-none" style="min-width:128px;">
+
+      <div class="stat-card" style="padding:7px 11px;">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[9px] text-stone-500 uppercase tracking-widest">Land</span>
+          <span id="ui-land" class="text-[10px] font-bold text-green-400">100</span>
+        </div>
+        <div class="stat-bar-track">
+          <div id="bar-land" class="stat-bar-fill bg-green-500" style="width:100%"></div>
+        </div>
+      </div>
+
+      <div class="stat-card" style="padding:7px 11px;">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[9px] text-stone-500 uppercase tracking-widest">Wildlife</span>
+          <span id="ui-deer" class="text-[10px] font-bold text-emerald-400">100</span>
+        </div>
+        <div class="stat-bar-track">
+          <div id="bar-deer" class="stat-bar-fill bg-emerald-500" style="width:100%"></div>
+        </div>
+      </div>
+
+      <div class="stat-card" style="padding:7px 11px;">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[9px] text-stone-500 uppercase tracking-widest">Squalor</span>
+          <span id="ui-squalor" class="text-[10px] font-bold text-stone-400">0</span>
+        </div>
+        <div class="stat-bar-track">
+          <div id="bar-squalor" class="stat-bar-fill bg-stone-500" style="width:0%"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Cannot Move warning ── -->
+    <div id="fail-msg" class="hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 animate-grow text-center"
+         style="background:rgba(70,0,0,.96); border:1px solid #ef4444; border-radius:14px; padding:22px 30px; min-width:210px;">
+      <div class="text-4xl mb-2">🔒</div>
+      <div class="cinzel font-bold text-red-300 text-sm tracking-widest mb-3">CANNOT MOVE</div>
+      <div class="text-xs text-stone-400">Need <span id="fail-cost" class="text-white font-bold">0</span> food</div>
+      <div class="text-xs text-stone-400 mt-1">Have <span id="fail-have" class="text-red-400 font-bold">0</span> food</div>
+    </div>
+
+  </div><!-- end landscape -->
+
+  <!-- ═══ BOTTOM PANEL ═══ -->
+  <div class="flex flex-col md:flex-row z-30 shrink-0"
+       style="border-top:1px solid #2d1f10; background:linear-gradient(to bottom,#110b04,#0c0804);">
+
+    <!-- Event Log -->
+    <div class="w-full md:w-2/5 h-44 p-3 border-b md:border-b-0 md:border-r overflow-y-auto order-2 md:order-1 text-sm"
+         style="border-color:#2d1f10;" id="log">
+      <div class="text-[9px] text-stone-700 uppercase tracking-widest mb-2 pb-1"
+           style="border-bottom:1px solid #2d1f10; font-family:'Cinzel',serif;">Tribal History</div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="w-full md:w-3/5 p-4 grid grid-cols-2 gap-3 order-1 md:order-2">
+
+      <button onclick="window.game.action('hunt')"
+        class="btn-action group rounded-xl flex flex-col items-center justify-center py-5 gap-1"
+        style="background:linear-gradient(145deg,#052e16,#064e20); border:1px solid #166534;">
+        <div class="text-3xl group-hover:scale-110 transition-transform duration-150">🏹</div>
+        <div class="cinzel font-bold text-green-300 text-sm tracking-wider mt-0.5">HUNT</div>
+        <div class="text-[10px] text-green-800">deplete deer · mammoths finite</div>
+      </button>
+
+      <button onclick="window.game.action('farm')"
+        class="btn-action group rounded-xl flex flex-col items-center justify-center py-5 gap-1"
+        style="background:linear-gradient(145deg,#1c1000,#2c1a00); border:1px solid #92400e;">
+        <div class="text-3xl group-hover:scale-110 transition-transform duration-150">🌾</div>
+        <div class="cinzel font-bold text-amber-300 text-sm tracking-wider mt-0.5">FARM</div>
+        <div class="text-[10px] text-amber-900">farms ≤ pop · causes squalor</div>
+      </button>
+
+      <button onclick="window.game.action('build')"
+        class="btn-action group rounded-xl flex flex-col items-center justify-center py-5 gap-1"
+        style="background:linear-gradient(145deg,#0f0b07,#1a1510); border:1px solid #44403c;">
+        <div class="text-3xl group-hover:scale-110 transition-transform duration-150">🛖</div>
+        <div class="cinzel font-bold text-stone-300 text-sm tracking-wider mt-0.5">BUILD</div>
+        <div class="text-[10px] text-stone-700">+housing +storage · deepens trap</div>
+      </button>
+
+      <button onclick="window.game.action('move')"
+        class="btn-action group rounded-xl flex flex-col items-center justify-center py-5 gap-1"
+        style="background:linear-gradient(145deg,#030711,#05112e); border:1px solid #1d4ed8;">
+        <div class="text-3xl group-hover:scale-110 transition-transform duration-150">🦶</div>
+        <div class="cinzel font-bold text-blue-300 text-sm tracking-wider mt-0.5">MOVE</div>
+        <div class="text-[10px] font-bold" id="move-cost-text" style="color:#3b82f6;">Cost: 20</div>
+      </button>
+
     </div>
   </div>
 
-  <div class="bg-stone-100 border-t-4 border-stone-700 flex flex-col md:flex-row z-30 shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.3)]">
-    <div class="w-full md:w-1/3 h-48 bg-stone-200 p-4 border-b md:border-b-0 md:border-r border-stone-300 overflow-y-auto font-medium text-sm text-stone-700 order-2 md:order-1" id="log">
-      <div class="mb-2 pb-2 border-b border-stone-300 text-stone-400 text-xs uppercase tracking-widest">Tribal History</div>
-    </div>
-
-    <div class="w-full md:w-2/3 p-4 grid grid-cols-2 gap-3 bg-stone-100 order-1 md:order-2">
-
-      <button onclick="window.game.action('hunt')" class="btn-action group bg-white border-2 border-green-200 hover:bg-green-50 hover:border-green-600 rounded-xl flex flex-col items-center justify-center shadow-sm transition-colors py-4">
-        <div class="text-3xl mb-1 group-hover:scale-110 transition-transform">🏹</div>
-        <div class="font-bold text-stone-800 text-sm">HUNT</div>
-        <div class="text-[10px] text-stone-500">Depletes deer; mammoths are global & finite.</div>
-      </button>
-
-      <button onclick="window.game.action('farm')" class="btn-action group bg-white border-2 border-amber-200 hover:bg-amber-50 hover:border-amber-600 rounded-xl flex flex-col items-center justify-center shadow-sm transition-colors py-4">
-        <div class="text-3xl mb-1 group-hover:scale-110 transition-transform">🌾</div>
-        <div class="font-bold text-stone-800 text-sm">FARM</div>
-        <div class="text-[10px] text-stone-500">Farms ≤ Pop. Feeds big cities (even sick ones).</div>
-      </button>
-
-      <button onclick="window.game.action('build')" class="btn-action group bg-white border-2 border-stone-300 hover:bg-stone-100 hover:border-stone-600 rounded-xl flex flex-col items-center justify-center shadow-sm transition-colors py-4">
-        <div class="text-3xl mb-1 group-hover:scale-110 transition-transform">🛖</div>
-        <div class="font-bold text-stone-800 text-sm">BUILD</div>
-        <div class="text-[10px] text-stone-500 text-center">+Housing, +Storage<br>(Deepens the trap)</div>
-      </button>
-
-      <button onclick="window.game.action('move')" class="btn-action group bg-blue-50 border-2 border-blue-300 hover:bg-blue-100 hover:border-blue-600 rounded-xl flex flex-col items-center justify-center shadow-sm transition-colors py-4">
-        <div class="text-3xl mb-1 group-hover:scale-110 transition-transform">🦶</div>
-        <div class="font-bold text-blue-900 text-sm">MOVE</div>
-        <div class="text-[10px] text-blue-600 text-center font-bold" id="move-cost-text">Cost: 20</div>
-      </button>
-
-    </div>
-  </div>
-</div>
+</div><!-- end game-container -->
 
 <script>
 // =========================================================================
@@ -167,97 +331,88 @@
 // =========================================================================
 const TUNING = {
     // --- GLOBAL RESOURCES ---
-    WORLD_MAMMOTHS: 8,           // Total Mammoths available in the entire game
+    WORLD_MAMMOTHS: 8,
 
     // --- STARTING STATE ---
-    INIT_POP: 10,                // Starting population
-    INIT_FOOD: 55,               // Starting food
-    INIT_STORAGE: 40,            // Base storage (before buildings)
-    INIT_HOUSING: 15,            // Base housing (before buildings)
+    INIT_POP: 10,
+    INIT_FOOD: 55,
+    INIT_STORAGE: 40,
+    INIT_HOUSING: 15,
 
     // --- CONSUMPTION ---
-    POP_EAT_RATE: 2.15,          // Food eaten per person per turn
-    CARRY_CAPACITY: 10,          // Extra storage added per person (carrying)
+    POP_EAT_RATE: 2.15,
+    CARRY_CAPACITY: 10,
 
     // --- GROWTH MECHANICS ---
-    GROWTH_BASE_RATE: 1.07,      // 7% growth per turn if conditions are good
-    GROWTH_FARM_BOOST: 0.0016,   // Boost per Farm
-    GROWTH_SQUALOR_PENALTY: 0.18,// Growth slowdown from squalor
-    
+    GROWTH_BASE_RATE: 1.07,
+    GROWTH_FARM_BOOST: 0.0016,
+    GROWTH_SQUALOR_PENALTY: 0.18,
+
     // Settlement Boom
-    BOOM_PER_TURN: 0.006,        // Growth bonus per turn settled
-    BOOM_MAX: 0.65,              // Max growth bonus
-    BOOM_START_DELAY: 4,         // Turns before boom starts
+    BOOM_PER_TURN: 0.006,
+    BOOM_MAX: 0.65,
+    BOOM_START_DELAY: 4,
 
     // --- FARMING ---
-    FARM_LABOR_BASE: 48,         // Clicks for first farm
-    FARM_LABOR_SCALE: 16,        // Extra clicks for subsequent farms
-    FARM_YIELD_PER_FARM: 10,     // Food per farm
-    FARM_UPKEEP_PER_FARM: 0.25,  // Seeds used per farm
-    FARM_SQUALOR_HIT: 0.10,      // Efficiency lost at max squalor
-    FARM_LAND_HIT: 0.35,         // Efficiency lost at 0 land health
-    // Farm yields improve the longer you stay settled (innovation)
-    FARM_YIELD_GROWTH_PER_TURN: 0.015, // +1.5% yield per turn settled
+    FARM_LABOR_BASE: 48,
+    FARM_LABOR_SCALE: 16,
+    FARM_YIELD_PER_FARM: 10,
+    FARM_UPKEEP_PER_FARM: 0.25,
+    FARM_SQUALOR_HIT: 0.10,
+    FARM_LAND_HIT: 0.35,
+    FARM_YIELD_GROWTH_PER_TURN: 0.015,
 
     // --- HUNTING ---
-    DEER_BASE_REGEN: 2.2,        // Deer recovery
-    DEER_YIELD_PER_HUNTER: 5.8,  // Food per hunter
-    DEER_DEPLETION_PER_HUNTER: 1.75, 
-    MAMMOTH_YIELD: 120,          
-    MAMMOTH_RISK: 0.18,          // Chance of death (18%)
-    HUNT_SQUALOR_HIT: 0.75,      // Sickness hurts hunting
+    DEER_BASE_REGEN: 2.2,
+    DEER_YIELD_PER_HUNTER: 5.8,
+    DEER_DEPLETION_PER_HUNTER: 1.75,
+    MAMMOTH_YIELD: 120,
+    MAMMOTH_RISK: 0.18,
+    HUNT_SQUALOR_HIT: 0.75,
 
     // --- BUILDING ---
-    BUILD_COST_PER_POP: 0.55,    // Food cost per person
-    BUILD_HOUSING_GAIN: 5,       
-    BUILD_STORAGE_GAIN: 40,      
+    BUILD_COST_PER_POP: 0.55,
+    BUILD_HOUSING_GAIN: 5,
+    BUILD_STORAGE_GAIN: 40,
 
     // --- SQUALOR & DISEASE ---
-    OVERCROWD_SQUALOR_MULT: 10,  // How fast crowding creates squalor
-    
-    // NEW: When does crowding start? (0.9 = 90% full, 1.1 = 110% full)
-    SQUALOR_CROWDING_START: 0.9, 
-    
-    // NEW: Master Speed dial for squalor (0.5 = fills half as fast, 1.0 = normal)
+    OVERCROWD_SQUALOR_MULT: 10,
+    SQUALOR_CROWDING_START: 0.9,
     SQUALOR_GAIN_SPEED: 0.2,
+    SQUALOR_FROM_FARMS: 0.25,
+    SQUALOR_FROM_BUILD: 0.70,
+    SQUALOR_DECAY_LIGHT: 0.25,
 
-    SQUALOR_FROM_FARMS: 0.25,    
-    SQUALOR_FROM_BUILD: 0.70,    
-    SQUALOR_DECAY_LIGHT: 0.25,   
-
-    DISEASE_START: 55,           
-    DISEASE_SPIKE: 80,           
-    DISEASE_CHANCE_BASE: 0.1,   
-    DISEASE_DEATH_BASE: 0.02,    
-    DISEASE_DEATH_MAX: 0.10,     
+    DISEASE_START: 55,
+    DISEASE_SPIKE: 80,
+    DISEASE_CHANCE_BASE: 0.1,
+    DISEASE_DEATH_BASE: 0.02,
+    DISEASE_DEATH_MAX: 0.10,
 
     // --- LAND & DECAY ---
-    LAND_DECAY_FROM_FARMS: 0.65, 
-    LAND_DECAY_FROM_BUILD: 1.10, 
-    LAND_DECAY_FROM_POP: 0.03,   
-    LAND_POP_THRESHOLD: 25,      
-    LAND_RECOVERY: 0.8,          
+    LAND_DECAY_FROM_FARMS: 0.65,
+    LAND_DECAY_FROM_BUILD: 1.10,
+    LAND_DECAY_FROM_POP: 0.03,
+    LAND_POP_THRESHOLD: 25,
+    LAND_RECOVERY: 0.8,
 
     // --- MOVE COSTS ---
-    MOVE_COST_BASE: 14,          
-    MOVE_COST_SETTLED: 0.95,     
-    MOVE_COST_FLOOR: 12          
+    MOVE_COST_BASE: 14,
+    MOVE_COST_SETTLED: 0.95,
+    MOVE_COST_FLOOR: 12
 };
 
 // =========================================================================
-//  GAME LOGIC (DO NOT EDIT BELOW THIS LINE)
+//  GAME LOGIC (mechanics unchanged)
 // =========================================================================
 
 class Game {
-  // Global static to track mammoths across resets
   static worldMammoths = (TUNING.WORLD_MAMMOTHS !== undefined) ? TUNING.WORLD_MAMMOTHS : 8;
   static worldExtinctLogged = false;
 
   constructor(){
-    // Helper to prevent NaN if user deletes a line
     this.safe = (val, defaultVal) => (typeof val === 'number' && !isNaN(val)) ? val : defaultVal;
 
-    // ===== State =====
     this.state = {
       turn: 1,
       season: 0,
@@ -265,53 +420,64 @@ class Game {
       food: this.safe(TUNING.INIT_FOOD, 55),
       baseStorage: this.safe(TUNING.INIT_STORAGE, 40),
       housingCap: this.safe(TUNING.INIT_HOUSING, 15),
-
       farms: 0,
       farmProgress: 0,
       builds: 0,
-
       deer: 100,
       land: 100,
       squalor: 0,
       settled: 0,
-
-      turnsSinceMove: 0 
+      turnsSinceMove: 0
     };
 
     this.ui = {
-      pop: document.getElementById('ui-pop'),
-      housing: document.getElementById('ui-housing'),
-      food: document.getElementById('ui-food'),
-      storage: document.getElementById('ui-storage'),
-      storageWarn: document.getElementById('storage-warn'),
-      year: document.getElementById('ui-year'),
-      season: document.getElementById('ui-season'),
-      log: document.getElementById('log'),
-      landscape: document.getElementById('landscape'),
-      entities: document.getElementById('entities'),
-      squalorFx: document.getElementById('squalor-fx'),
-      sickTint: document.getElementById('sick-tint'),
-      moveCostText: document.getElementById('move-cost-text'),
-      failMsg: document.getElementById('fail-msg'),
-      failCost: document.getElementById('fail-cost'),
-      failHave: document.getElementById('fail-have'),
-      container: document.getElementById('game-container'),
-      gameOverScreen: document.getElementById('game-over-screen'),
-      finalYear: document.getElementById('final-year')
+      pop:           document.getElementById('ui-pop'),
+      housing:       document.getElementById('ui-housing'),
+      food:          document.getElementById('ui-food'),
+      storage:       document.getElementById('ui-storage'),
+      storageWarn:   document.getElementById('storage-warn'),
+      year:          document.getElementById('ui-year'),
+      season:        document.getElementById('ui-season'),
+      log:           document.getElementById('log'),
+      landscape:     document.getElementById('landscape'),
+      entities:      document.getElementById('entities'),
+      squalorFx:     document.getElementById('squalor-fx'),
+      sickTint:      document.getElementById('sick-tint'),
+      moveCostText:  document.getElementById('move-cost-text'),
+      failMsg:       document.getElementById('fail-msg'),
+      failCost:      document.getElementById('fail-cost'),
+      failHave:      document.getElementById('fail-have'),
+      container:     document.getElementById('game-container'),
+      gameOverScreen:document.getElementById('game-over-screen'),
+      finalYear:     document.getElementById('final-year'),
+      // new visual elements
+      barPop:        document.getElementById('bar-pop'),
+      barFood:       document.getElementById('bar-food'),
+      barLand:       document.getElementById('bar-land'),
+      barDeer:       document.getElementById('bar-deer'),
+      barSqualor:    document.getElementById('bar-squalor'),
+      uiLand:        document.getElementById('ui-land'),
+      uiDeer:        document.getElementById('ui-deer'),
+      uiSqualor:     document.getElementById('ui-squalor'),
+      uiMammoths:    document.getElementById('ui-mammoths'),
+      lsGround:      document.getElementById('landscape-ground'),
+      cloudLayer:    document.getElementById('cloud-layer'),
+      flashFx:       document.getElementById('flash-fx'),
+      celestial:     document.getElementById('ui-celestial'),
     };
 
     this.seasons = ['Spring','Summer','Autumn','Winter'];
-    this.log(`Fresh land. Deer are plentiful. Mammoths in the world: ${Game.worldMammoths}.`, "text-green-700");
-    this.log(`Births compound each turn when food is strong.`, "text-stone-700");
+    this.log(`Fresh land. Deer are plentiful. Mammoths in the world: ${Game.worldMammoths}.`, 'birth');
+    this.log(`Births compound each turn when food is strong.`, 'info');
+    this.renderClouds();
     this.render();
   }
 
-  // Helper to ensure values stay within 0-100 range
   clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
 
-  getTotalStorage(){ 
+  getTotalStorage(){
     const capacity = this.safe(TUNING.CARRY_CAPACITY, 10);
-    return this.state.baseStorage + (this.state.pop * capacity); 
+    return this.state.baseStorage + (this.state.pop * capacity);
   }
 
   density(){
@@ -321,49 +487,37 @@ class Game {
 
   moveCost(){
     const s = this.state;
-    const base = this.safe(TUNING.MOVE_COST_BASE, 14);
-    const settledFactor = this.safe(TUNING.MOVE_COST_SETTLED, 0.95);
-    const floor = this.safe(TUNING.MOVE_COST_FLOOR, 12);
-    
-    const cost = base + Math.floor(s.settled * settledFactor);
-    return Math.max(floor, cost);
+    const base    = this.safe(TUNING.MOVE_COST_BASE, 14);
+    const factor  = this.safe(TUNING.MOVE_COST_SETTLED, 0.95);
+    const floor   = this.safe(TUNING.MOVE_COST_FLOOR, 12);
+    return Math.max(floor, base + Math.floor(s.settled * factor));
   }
 
   settlementBoom(){
-    const s = this.state;
+    const s     = this.state;
     const delay = this.safe(TUNING.BOOM_START_DELAY, 4);
-    const max = this.safe(TUNING.BOOM_MAX, 0.65);
-    const rate = this.safe(TUNING.BOOM_PER_TURN, 0.006);
-
-    const t = Math.max(0, s.turnsSinceMove - delay);
-    const boom = Math.min(max, t * rate);
-    return 1 + boom; 
+    const max   = this.safe(TUNING.BOOM_MAX, 0.65);
+    const rate  = this.safe(TUNING.BOOM_PER_TURN, 0.006);
+    const t     = Math.max(0, s.turnsSinceMove - delay);
+    return 1 + Math.min(max, t * rate);
   }
 
   farmMultiplier(){
-    const s = this.state;
-    const sq = this.clamp(s.squalor,0,100)/100;
-    const land = this.clamp(s.land,0,100)/100;
-    
-    const sqHit = this.safe(TUNING.FARM_SQUALOR_HIT, 0.20);
-    const landHit = this.safe(TUNING.FARM_LAND_HIT, 0.35);
-
-    const sqMult = 1 - (sq * sqHit);
-    const landMult = 1 - ((1 - land) * landHit);
-    return Math.max(0.25, sqMult * landMult);
+    const s      = this.state;
+    const sq     = this.clamp(s.squalor,0,100)/100;
+    const land   = this.clamp(s.land,0,100)/100;
+    const sqHit  = this.safe(TUNING.FARM_SQUALOR_HIT, 0.20);
+    const lHit   = this.safe(TUNING.FARM_LAND_HIT, 0.35);
+    return Math.max(0.25, (1-(sq*sqHit)) * (1-((1-land)*lHit)));
   }
 
   huntMultiplier(){
-    const s = this.state;
-    const sq = this.clamp(s.squalor,0,100)/100;
-    const land = this.clamp(s.land,0,100)/100;
-    
-    const sqHit = this.safe(TUNING.HUNT_SQUALOR_HIT, 0.75);
-    const landHit = this.safe(TUNING.HUNT_LAND_HIT, 0.85);
-
-    const sqMult = 1 - (sq * sqHit);
-    const landMult = 1 - ((1 - land) * landHit);
-    return Math.max(0.05, sqMult * landMult);
+    const s      = this.state;
+    const sq     = this.clamp(s.squalor,0,100)/100;
+    const land   = this.clamp(s.land,0,100)/100;
+    const sqHit  = this.safe(TUNING.HUNT_SQUALOR_HIT, 0.75);
+    const lHit   = this.safe(TUNING.HUNT_LAND_HIT, 0.85);
+    return Math.max(0.05, (1-(sq*sqHit)) * (1-((1-land)*lHit)));
   }
 
   action(type){
@@ -374,116 +528,92 @@ class Game {
       let take = 0;
       if(Game.worldMammoths > 0){
         const attempt = Math.floor((s.pop / 10.0) * (0.9 + Math.random()*0.6));
-        take = this.clamp(attempt, 0, 2); 
+        take = this.clamp(attempt, 0, 2);
         take = Math.min(take, Game.worldMammoths);
         if(take === 0 && s.deer < 30 && Math.random() > 0.6) take = 1;
         take = Math.min(take, Game.worldMammoths);
       }
 
-      const mammothYield = this.safe(TUNING.MAMMOTH_YIELD, 120);
-      const mammothFood = take * mammothYield;
-
-      const deerYield = this.safe(TUNING.DEER_YIELD_PER_HUNTER, 5.8);
-      const deerLuck = 0.85 + Math.random()*0.35;
-      const deerFood = Math.floor(
-        s.pop * deerYield * (s.deer/100) * deerLuck * this.huntMultiplier()
-      );
-
-      const total = mammothFood + deerFood;
+      const mammothFood = take * this.safe(TUNING.MAMMOTH_YIELD, 120);
+      const deerLuck    = 0.85 + Math.random()*0.35;
+      const deerFood    = Math.floor(s.pop * this.safe(TUNING.DEER_YIELD_PER_HUNTER,5.8) * (s.deer/100) * deerLuck * this.huntMultiplier());
+      const total       = mammothFood + deerFood;
       s.food += total;
 
-      const deerDepletion = this.safe(TUNING.DEER_DEPLETION_PER_HUNTER, 1.75);
-      const deerDmg = (s.pop * deerDepletion) + (take * 7);
+      const deerDmg = (s.pop * this.safe(TUNING.DEER_DEPLETION_PER_HUNTER,1.75)) + (take * 7);
       s.deer = Math.max(0, s.deer - deerDmg);
 
       if(take > 0){
         Game.worldMammoths = Math.max(0, Game.worldMammoths - take);
-        this.spawnFloater(`+${mammothFood} 🦣`, "stone");
-
+        this.spawnFloater(`+${mammothFood} 🦣`, "amber");
         const risk = this.safe(TUNING.MAMMOTH_RISK, 0.18);
         if(Math.random() < risk){
           const dead = Math.max(1, Math.ceil(s.pop * 0.06));
           s.pop = Math.max(0, s.pop - dead);
-          this.log(`MAMMOTH HUNT! ${dead} died.`, "text-red-800 font-bold");
+          this.log(`MAMMOTH HUNT! ${dead} died in the chase.`, 'death');
           this.spawnFloater(`-${dead} ⚔️`, "red");
+          this.flashScreen('danger');
         }
-
-        this.log(`Hunt! Took ${take} mammoth${take>1?"s":""} (+${mammothFood}) and gathered ${deerFood} deer-meat.`, "text-green-800");
-        this.log(`Mammoths remaining worldwide: ${Game.worldMammoths}.`, "text-stone-700");
-
+        this.log(`Hunt! Took ${take} mammoth${take>1?"s":""} (+${mammothFood}) plus ${deerFood} deer-meat.`, 'hunt');
+        this.log(`Mammoths remaining worldwide: ${Game.worldMammoths}.`, 'info');
         if(Game.worldMammoths === 0 && !Game.worldExtinctLogged){
           Game.worldExtinctLogged = true;
-          this.log("The last mammoth falls. They will not return.", "text-stone-900 font-bold");
+          this.log("The last mammoth falls. They will not return.", 'death');
           this.spawnFloater("🦣 EXTINCT", "red");
         }
       } else {
-        this.log(`Hunt! Deer-meat: ${deerFood}.${Game.worldMammoths===0 ? " (No mammoths remain.)" : ""}`, deerFood>0 ? "text-green-700" : "text-amber-700");
+        this.log(`Hunt! Deer-meat: ${deerFood}.${Game.worldMammoths===0?" (No mammoths remain.)":""}`, deerFood>0?'hunt':'warn');
       }
 
       const cap = this.getTotalStorage();
       if(s.food > cap){ s.food = cap; this.spawnFloater("Max Load!", "stone"); }
-
       this.endTurn();
       return;
     }
 
     if(type === "farm"){
       if(s.farms >= s.pop){
-        this.log(`Farm limit reached: Farms (${s.farms}) cannot exceed Population (${s.pop}).`, "text-amber-800 font-bold");
+        this.log(`Farm limit: Farms (${s.farms}) cannot exceed Population (${s.pop}).`, 'warn');
         this.shake();
         return;
       }
-
-      const labor = Math.floor(s.pop);
-      const laborBase = this.safe(TUNING.FARM_LABOR_BASE, 48);
-      const laborScale = this.safe(TUNING.FARM_LABOR_SCALE, 16);
-      
-      const req = laborBase + (s.farms * laborScale);
+      const labor    = Math.floor(s.pop);
+      const laborBase= this.safe(TUNING.FARM_LABOR_BASE, 48);
+      const laborScale=this.safe(TUNING.FARM_LABOR_SCALE, 16);
+      const req      = laborBase + (s.farms * laborScale);
       s.farmProgress += labor;
-
-      let made = Math.floor(s.farmProgress / req);
-      made = Math.min(made, s.pop - s.farms);
-
+      let made = Math.min(Math.floor(s.farmProgress / req), s.pop - s.farms);
       if(made > 0){
         s.farms += made;
         s.farmProgress = s.farmProgress % req;
-        this.log(`Expanded farms: +${made}. (Total farms: ${s.farms})`, "text-amber-700");
+        this.log(`Expanded farms: +${made}. (Total: ${s.farms})`, 'farm');
         this.spawnFloater(`+${made} 🌾`, "amber");
         s.settled = this.clamp(s.settled + made * 2.2, 0, 100);
       } else {
-        this.log(`Worked fields (${Math.floor((s.farmProgress/req)*100)}%).`, "text-amber-700");
+        this.log(`Worked fields (${Math.floor((s.farmProgress/req)*100)}%).`, 'farm');
         s.settled = this.clamp(s.settled + 0.6, 0, 100);
       }
-
       s.land = Math.max(0, s.land - (0.35 + (made*0.25)));
-
       this.endTurn();
       return;
     }
 
     if(type === "build"){
       const buildCost = this.safe(TUNING.BUILD_COST_PER_POP, 0.55);
-      const cost = Math.ceil(s.pop * buildCost);
-      
+      const cost      = Math.ceil(s.pop * buildCost);
       if(s.food < cost){
-        this.log(`Need ${cost} food to build!`, "text-red-600");
+        this.log(`Need ${cost} food to build!`, 'warn');
         this.shake();
         return;
       }
-
-      s.food -= cost;
+      s.food     -= cost;
       s.housingCap += this.safe(TUNING.BUILD_HOUSING_GAIN, 5);
-      s.baseStorage += this.safe(TUNING.BUILD_STORAGE_GAIN, 40);
-      s.builds += 1;
-
-      s.settled = this.clamp(s.settled + 6.0, 0, 100);
-      s.land = Math.max(0, s.land - 1.0);
-
-      const gainH = this.safe(TUNING.BUILD_HOUSING_GAIN, 5);
-      const gainS = this.safe(TUNING.BUILD_STORAGE_GAIN, 40);
-      this.log(`Built shelters (+${gainH} cap) and storage (+${gainS}).`, "text-stone-700");
-      this.spawnFloater("+Shelter", "stone");
-
+      s.baseStorage+= this.safe(TUNING.BUILD_STORAGE_GAIN, 40);
+      s.builds   += 1;
+      s.settled   = this.clamp(s.settled + 6.0, 0, 100);
+      s.land      = Math.max(0, s.land - 1.0);
+      this.log(`Built shelters (+${this.safe(TUNING.BUILD_HOUSING_GAIN,5)} cap, +${this.safe(TUNING.BUILD_STORAGE_GAIN,40)} storage).`, 'build');
+      this.spawnFloater("+Shelter 🛖", "stone");
       this.endTurn();
       return;
     }
@@ -494,30 +624,25 @@ class Game {
         this.ui.failCost.innerText = cost;
         this.ui.failHave.innerText = Math.floor(s.food);
         this.ui.failMsg.classList.remove('hidden');
-        setTimeout(()=>this.ui.failMsg.classList.add('hidden'), 2500);
+        setTimeout(()=>this.ui.failMsg.classList.add('hidden'), 2600);
         this.shake();
         return;
       }
-
-      s.food -= cost;
-
-      s.deer = 100;
-      s.land = 100;
-
-      s.farms = 0;
+      s.food     -= cost;
+      s.deer      = 100;
+      s.land      = 100;
+      s.farms     = 0;
       s.farmProgress = 0;
-      s.builds = 0;
-
-      s.squalor = 0;
-      s.housingCap = this.safe(TUNING.INIT_HOUSING, 15);
+      s.builds    = 0;
+      s.squalor   = 0;
+      s.housingCap  = this.safe(TUNING.INIT_HOUSING, 15);
       s.baseStorage = this.safe(TUNING.INIT_STORAGE, 40);
-      s.settled = 0;
-
-      s.turnsSinceMove = 0; 
-
-      this.log(`Migrated (-${cost} food). Fresh land returns. Mammoths worldwide: ${Game.worldMammoths}.`, "text-blue-700");
-      this.spawnFloater("New Land!", "blue");
-
+      s.settled   = 0;
+      s.turnsSinceMove = 0;
+      this.log(`Migrated (-${cost} food). Fresh land. Mammoths worldwide: ${Game.worldMammoths}.`, 'move');
+      this.spawnFloater("New Land! 🌍", "blue");
+      this.flashScreen('move');
+      this.renderClouds();
       this.render();
       return;
     }
@@ -529,100 +654,72 @@ class Game {
 
     // Eat
     const eatRate = this.safe(TUNING.POP_EAT_RATE, 1.15);
-    const eat = Math.ceil(s.pop * eatRate);
+    const eat     = Math.ceil(s.pop * eatRate);
     s.food -= eat;
 
     // Farm upkeep
     if(s.farms > 0){
-      const farmUpkeep = this.safe(TUNING.FARM_UPKEEP_PER_FARM, 0.25);
-      const upkeep = Math.ceil(s.farms * farmUpkeep);
+      const upkeep = Math.ceil(s.farms * this.safe(TUNING.FARM_UPKEEP_PER_FARM, 0.25));
       s.food -= upkeep;
-      if(upkeep > 0 && Math.random() > 0.6) this.spawnFloater(`-${upkeep} Seed`, "amber");
+      if(upkeep > 0 && Math.random() > 0.6) this.spawnFloater(`-${upkeep} seed`, "amber");
     }
 
-    // Farm yield (NEW: With Improvement over time)
+    // Farm yield
     if(s.farms > 0){
-      const mult = this.farmMultiplier();
-      const baseYield = this.safe(TUNING.FARM_YIELD_PER_FARM, 10);
-      const yieldGrowth = this.safe(TUNING.FARM_YIELD_GROWTH_PER_TURN, 0.0);
-      
-      // Calculate innovation bonus based on time settled
-      const innovationBonus = 1 + (s.turnsSinceMove * yieldGrowth);
-      
-      const yieldAmt = Math.floor(s.farms * baseYield * innovationBonus * mult);
-
-      const cap = this.getTotalStorage();
-      const space = cap - s.food;
-      const add = Math.max(0, Math.min(space, yieldAmt));
+      const mult          = this.farmMultiplier();
+      const baseYield     = this.safe(TUNING.FARM_YIELD_PER_FARM, 10);
+      const yieldGrowth   = this.safe(TUNING.FARM_YIELD_GROWTH_PER_TURN, 0.0);
+      const innovBonus    = 1 + (s.turnsSinceMove * yieldGrowth);
+      const yieldAmt      = Math.floor(s.farms * baseYield * innovBonus * mult);
+      const cap           = this.getTotalStorage();
+      const add           = Math.max(0, Math.min(cap - s.food, yieldAmt));
       s.food += add;
-
-      if(add > 0) this.spawnFloater(`+${add} Crop`, "amber");
+      if(add > 0) this.spawnFloater(`+${add} crop`, "amber");
     }
 
     // Land decay
-    const popThresh = this.safe(TUNING.LAND_POP_THRESHOLD, 25);
-    const popPressure = Math.max(0, s.pop - popThresh);
-    
+    const popPressure = Math.max(0, s.pop - this.safe(TUNING.LAND_POP_THRESHOLD, 25));
     const landLoss =
-      (s.farms * this.safe(TUNING.LAND_DECAY_FROM_FARMS, 0.65)) +
+      (s.farms  * this.safe(TUNING.LAND_DECAY_FROM_FARMS, 0.65)) +
       (s.builds * this.safe(TUNING.LAND_DECAY_FROM_BUILD, 1.10)) +
       (popPressure * this.safe(TUNING.LAND_DECAY_FROM_POP, 0.03));
-
-    const light = (s.farms <= 2 && s.builds <= 1 && s.pop <= 20);
-    const recoveryVal = this.safe(TUNING.LAND_RECOVERY, 0.8);
-    const recovery = light ? recoveryVal : 0;
-
+    const light    = (s.farms <= 2 && s.builds <= 1 && s.pop <= 20);
+    const recovery = light ? this.safe(TUNING.LAND_RECOVERY, 0.8) : 0;
     s.land = this.clamp(s.land - landLoss + recovery, 0, 100);
 
     // Deer regen
-    const deerCeiling = Math.min(s.land, 100);
-    const regenVal = this.safe(TUNING.DEER_BASE_REGEN, 2.2);
-    const regen = regenVal * (s.land/100);
-    s.deer = Math.min(deerCeiling, Math.max(0, s.deer + regen));
+    const regen = this.safe(TUNING.DEER_BASE_REGEN, 2.2) * (s.land/100);
+    s.deer = Math.min(Math.min(s.land, 100), Math.max(0, s.deer + regen));
 
-    // Squalor (NEW: With Speed and Threshold tuning)
+    // Squalor
     const d = this.density();
     let sqDelta = 0;
-    
-    // Check threshold (Defaults to 0.9 if not set)
     const crowdStart = this.safe(TUNING.SQUALOR_CROWDING_START, 0.9);
-    
-    if(d > crowdStart) {
-        const crowdMult = this.safe(TUNING.OVERCROWD_SQUALOR_MULT, 16);
-        sqDelta += (d - crowdStart) * crowdMult;
+    if(d > crowdStart){
+      sqDelta += (d - crowdStart) * this.safe(TUNING.OVERCROWD_SQUALOR_MULT, 16);
     }
-    
-    sqDelta += (s.farms * this.safe(TUNING.SQUALOR_FROM_FARMS, 0.45));
+    sqDelta += (s.farms  * this.safe(TUNING.SQUALOR_FROM_FARMS, 0.45));
     sqDelta += (s.builds * this.safe(TUNING.SQUALOR_FROM_BUILD, 0.70));
-    
     if(light) sqDelta -= this.safe(TUNING.SQUALOR_DECAY_LIGHT, 0.25);
-    
-    // Apply Master Speed Scale
     const sqSpeed = this.safe(TUNING.SQUALOR_GAIN_SPEED, 1.0);
     if(sqDelta > 0) sqDelta *= sqSpeed;
-
     s.squalor = this.clamp(s.squalor + sqDelta, 0, 100);
 
     // Disease
     const diseaseStart = this.safe(TUNING.DISEASE_START, 55);
     if(s.squalor >= diseaseStart){
       const chanceBase = this.safe(TUNING.DISEASE_CHANCE_BASE, 0.22);
-      const chance = chanceBase + ((s.squalor - diseaseStart) / (100 - diseaseStart)) * 0.35;
-
+      const chance     = chanceBase + ((s.squalor - diseaseStart)/(100 - diseaseStart)) * 0.35;
       if(Math.random() < chance){
-        const t = this.clamp((s.squalor - diseaseStart) / (100 - diseaseStart), 0, 1);
-        const deathMin = this.safe(TUNING.DISEASE_DEATH_BASE, 0.02);
-        const deathMax = this.safe(TUNING.DISEASE_DEATH_MAX, 0.10);
-        const deathRate = deathMin + t * (deathMax - deathMin);
-        
-        const dead = Math.max(1, Math.floor(s.pop * deathRate));
+        const t        = this.clamp((s.squalor - diseaseStart)/(100 - diseaseStart), 0, 1);
+        const deathRate= this.safe(TUNING.DISEASE_DEATH_BASE,0.02) + t*(this.safe(TUNING.DISEASE_DEATH_MAX,0.10)-this.safe(TUNING.DISEASE_DEATH_BASE,0.02));
+        const dead     = Math.max(1, Math.floor(s.pop * deathRate));
         s.pop = Math.max(0, s.pop - dead);
-        this.log(`DISEASE WAVE! ${dead} died.`, "text-red-800 font-bold");
+        this.log(`DISEASE WAVE! ${dead} perished.`, 'death');
         this.spawnFloater(`-${dead} ☠️`, "red");
-        
-        const spike = this.safe(TUNING.DISEASE_SPIKE, 80);
-        if(s.squalor >= spike){
-          this.log("The air is foul. Coughing becomes constant.", "text-stone-900 font-bold");
+        this.flashScreen('danger');
+        if(s.squalor >= this.safe(TUNING.DISEASE_SPIKE, 80)){
+          this.log("The air is foul. Coughing never stops.", 'warn');
         }
       }
     }
@@ -630,63 +727,59 @@ class Game {
     // Starvation
     if(s.food < 0){
       const starved = Math.ceil(Math.abs(s.food) / 5);
-      s.pop = Math.max(0, s.pop - starved);
+      s.pop  = Math.max(0, s.pop - starved);
       s.food = 0;
-      this.log(`${starved} starved.`, "text-red-800 font-bold");
-      this.spawnFloater(`-${starved} Starve`, "red");
+      this.log(`${starved} starved.`, 'death');
+      this.spawnFloater(`-${starved} starve`, "red");
+      this.flashScreen('danger');
     }
 
     // Exposure
-    const exposureRate = 0.18; 
     if(s.pop > s.housingCap){
       const exposed = s.pop - s.housingCap;
-      const rate = exposureRate + (s.squalor / 400);
-      const dead = Math.max(1, Math.ceil(exposed * rate));
+      const rate    = 0.18 + (s.squalor / 400);
+      const dead    = Math.max(1, Math.ceil(exposed * rate));
       s.pop = Math.max(0, s.pop - dead);
-      this.log(`EXPOSURE! ${dead} died without shelter.`, "text-red-800 font-bold");
-      this.spawnFloater(`-${dead} Cold`, "red");
+      this.log(`EXPOSURE! ${dead} died without shelter.`, 'death');
+      this.spawnFloater(`-${dead} cold`, "red");
+      this.flashScreen('danger');
     }
 
     // Settledness
     if(s.farms > 0 || s.builds > 0){
       let add = Math.min(4.0, (s.farms * 0.22) + (s.builds * 0.8));
-      if(s.food < eat * 0.85) add += 1.2; 
+      if(s.food < eat * 0.85) add += 1.2;
       s.settled = this.clamp(s.settled + add, 0, 100);
-      if(Math.random() > 0.84) this.log("You are rooted. Leaving would be unthinkable.", "text-stone-700");
+      if(Math.random() > 0.84) this.log("You are rooted. Leaving would be unthinkable.", 'info');
     } else {
-      s.settled = this.clamp(s.settled - 0.35, 0, 100); 
+      s.settled = this.clamp(s.settled - 0.35, 0, 100);
     }
 
     // Growth
-    const cap = this.getTotalStorage();
-    const foodStrong = s.food > eat * 1.15 && s.food > cap * 0.22;
-
+    const cap       = this.getTotalStorage();
+    const foodStrong= s.food > eat * 1.15 && s.food > cap * 0.22;
     if(foodStrong){
-      const farmBoostVal = this.safe(TUNING.GROWTH_FARM_BOOST, 0.0016);
-      const farmBoost = 1 + (s.farms * farmBoostVal);
-      
-      const sqPenVal = this.safe(TUNING.GROWTH_SQUALOR_PENALTY, 0.18);
-      const sqPenalty = 1 - (this.clamp(s.squalor,0,100)/100) * sqPenVal;
-      const boom = this.settlementBoom();
-
-      const baseRate = this.safe(TUNING.GROWTH_BASE_RATE, 1.07);
-      const growthRate = baseRate * farmBoost * Math.max(0.55, sqPenalty) * boom;
-
+      const farmBoost = 1 + (s.farms * this.safe(TUNING.GROWTH_FARM_BOOST, 0.0016));
+      const sqPenalty = 1 - (this.clamp(s.squalor,0,100)/100) * this.safe(TUNING.GROWTH_SQUALOR_PENALTY, 0.18);
+      const boom      = this.settlementBoom();
+      const baseRate  = this.safe(TUNING.GROWTH_BASE_RATE, 1.07);
+      const growthRate= baseRate * farmBoost * Math.max(0.55, sqPenalty) * boom;
       let births = Math.floor(s.pop * (growthRate - 1));
       if(births < 1) births = 1;
       if(Math.random() < 0.18) births += 1;
-
       s.pop += births;
-      this.log(`Births! +${births} (settled ${s.turnsSinceMove} turns)`, "text-blue-700");
-      this.spawnFloater(`+${births} Pop`, "blue");
+      this.log(`Births! +${births} (settled ${s.turnsSinceMove} turns)`, 'birth');
+      this.spawnFloater(`+${births} 👶`, "blue");
     }
 
-    // Advance
+    // Advance season
     s.season = (s.season + 1) % 4;
     if(s.season === 0) s.turn++;
 
-    if(s.land < 25 && Math.random() > 0.75) this.log("The land is exhausted. The wild vanishes.", "text-amber-900 font-bold");
-    if(s.deer < 15 && Math.random() > 0.75) this.log("The hunt is thin. Hoofprints fade.", "text-amber-900 font-bold");
+    if(s.land < 25 && Math.random() > 0.75)
+      this.log("The land is exhausted. The wild vanishes.", 'warn');
+    if(s.deer < 15 && Math.random() > 0.75)
+      this.log("The hunt is thin. Hoofprints fade.", 'warn');
 
     this.render();
     if(s.pop === 0) this.triggerGameOver();
@@ -697,141 +790,224 @@ class Game {
     this.ui.gameOverScreen.classList.remove('hidden');
   }
 
-  render(){
-    const s = this.state;
-    const cap = this.getTotalStorage();
-    const mv = this.moveCost();
+  // ── Visual helpers ─────────────────────────────────────────────────────
 
-    this.ui.pop.innerText = s.pop;
-    this.ui.housing.innerText = s.housingCap;
-    this.ui.food.innerText = Math.floor(s.food);
-    this.ui.storage.innerText = cap;
-    this.ui.year.innerText = s.turn;
-    this.ui.season.innerText = ['Spring','Summer','Autumn','Winter'][s.season];
-
-    this.ui.moveCostText.innerText = `Cost: ${mv}`;
-    if(s.food < mv){
-      this.ui.moveCostText.classList.remove('text-blue-600');
-      this.ui.moveCostText.classList.add('text-red-500');
-    } else {
-      this.ui.moveCostText.classList.remove('text-red-500');
-      this.ui.moveCostText.classList.add('text-blue-600');
+  renderClouds(){
+    const layer = this.ui.cloudLayer;
+    layer.innerHTML = "";
+    const count = 4 + Math.floor(Math.random()*3);
+    for(let i=0; i<count; i++){
+      const el = document.createElement('div');
+      const top  = 4  + Math.random() * 28;
+      const left = Math.random() * 88;
+      const size = 28 + Math.floor(Math.random() * 30);
+      const delay= (Math.random() * 14).toFixed(1);
+      el.style.cssText = `
+        position:absolute; top:${top}%; left:${left}%;
+        font-size:${size}px; opacity:${0.25+Math.random()*0.3};
+        filter:blur(1px);
+        animation: cloud-drift ${16+Math.random()*14}s linear ${delay}s infinite alternate;
+        pointer-events:none; z-index:3;
+      `;
+      el.textContent = "☁";
+      layer.appendChild(el);
     }
+  }
 
+  flashScreen(type){
+    const el = this.ui.flashFx;
+    el.className = (type === 'danger') ? 'flash-danger' : 'flash-move';
+    el.style.cssText = 'position:absolute;inset:0;z-index:22;pointer-events:none;';
+    void el.offsetWidth; // reflow to restart animation
+    el.className = (type === 'danger') ? 'absolute inset-0 z-[22] pointer-events-none flash-danger' : 'absolute inset-0 z-[22] pointer-events-none flash-move';
+    setTimeout(()=>{ el.className = 'absolute inset-0 z-[22] pointer-events-none'; }, 700);
+  }
+
+  render(){
+    const s   = this.state;
+    const cap = this.getTotalStorage();
+    const mv  = this.moveCost();
+
+    // ── Text stats ──
+    this.ui.pop.innerText     = s.pop;
+    this.ui.housing.innerText = s.housingCap;
+    this.ui.food.innerText    = Math.floor(s.food);
+    this.ui.storage.innerText = cap;
+    this.ui.year.innerText    = s.turn;
+    this.ui.uiLand.innerText   = Math.round(s.land);
+    this.ui.uiDeer.innerText   = Math.round(s.deer);
+    this.ui.uiSqualor.innerText= Math.round(s.squalor);
+    this.ui.uiMammoths.innerText = Game.worldMammoths;
+
+    // ── Season label + sky ──
+    const seasonNames = ['Spring','Summer','Autumn','Winter'];
+    const skies       = ['sky-spring','sky-summer','sky-autumn','sky-winter'];
+    const grounds     = { spring:'ground-lush', summer:'ground-lush', autumn:'ground-sparse', winter:'ground-dead' };
+    const ssnName     = seasonNames[s.season];
+    this.ui.season.innerText = ssnName;
+
+    const ls = this.ui.landscape;
+    ls.className = 'landscape-container w-full h-[48vh] md:h-[56vh] ' + skies[s.season];
+
+    // Celestial body
+    const celestials = ['☀️','🌞','🍂','❄️'];
+    this.ui.celestial.textContent = celestials[s.season];
+
+    // ── Ecology index → ground layer ──
+    const landN = this.clamp(s.land,0,100)/100;
+    const deerN = this.clamp(s.deer,0,100)/100;
+    const eco   = this.clamp(0.55*landN + 0.45*deerN, 0, 1);
+    const gnd   = this.ui.lsGround;
+    gnd.className = 'landscape-ground ' + (eco<=0.22 ? 'ground-dead' : eco<=0.55 ? 'ground-sparse' : 'ground-lush');
+
+    // ── Progress bars ──
+    const popPct    = this.clamp(s.pop / Math.max(1, s.housingCap), 0, 1) * 100;
+    const foodPct   = this.clamp(s.food / Math.max(1, cap), 0, 1) * 100;
+    const landPct   = this.clamp(s.land, 0, 100);
+    const deerPct   = this.clamp(s.deer, 0, 100);
+    const squalorPct= this.clamp(s.squalor, 0, 100);
+
+    this.ui.barPop.style.width   = popPct + '%';
+    this.ui.barFood.style.width  = foodPct + '%';
+    this.ui.barLand.style.width  = landPct + '%';
+    this.ui.barDeer.style.width  = deerPct + '%';
+    this.ui.barSqualor.style.width = squalorPct + '%';
+
+    // Bar colors respond to state
+    this.ui.barPop.style.background  = popPct > 90 ? '#ef4444' : popPct > 70 ? '#f59e0b' : '#3b82f6';
+    this.ui.barFood.style.background = foodPct > 90 ? '#f59e0b' : foodPct < 20 ? '#ef4444' : '#f59e0b';
+    this.ui.barLand.style.background = landPct < 25 ? '#78716c' : landPct < 50 ? '#ca8a04' : '#22c55e';
+    this.ui.barDeer.style.background = deerPct < 25 ? '#78716c' : '#10b981';
+    this.ui.barSqualor.style.background = squalorPct > 70 ? '#ef4444' : squalorPct > 40 ? '#f59e0b' : '#78716c';
+
+    // Land & deer text color
+    this.ui.uiLand.style.color    = landPct < 25 ? '#f87171' : landPct < 50 ? '#fbbf24' : '#86efac';
+    this.ui.uiDeer.style.color    = deerPct < 25 ? '#f87171' : deerPct < 50 ? '#fbbf24' : '#6ee7b7';
+    this.ui.uiSqualor.style.color = squalorPct > 55 ? '#f87171' : squalorPct > 30 ? '#fbbf24' : '#a8a29e';
+
+    // Move cost
+    this.ui.moveCostText.innerText = `Cost: ${mv}`;
+    this.ui.moveCostText.style.color = s.food < mv ? '#f87171' : '#60a5fa';
+
+    // Storage warn
     if(s.food >= cap){
       this.ui.storageWarn.classList.remove('hidden');
-      this.ui.storageWarn.innerText = "STORAGE FULL";
     } else {
       this.ui.storageWarn.classList.add('hidden');
     }
 
-    const landN = this.clamp(s.land,0,100)/100;
-    const deerN = this.clamp(s.deer,0,100)/100;
-    const ecoIndex = this.clamp((0.55 * landN + 0.45 * deerN), 0, 1);
-
-    const ls = this.ui.landscape;
-    ls.className = "landscape-container w-full h-[50vh] md:h-[60vh]";
-    if(ecoIndex <= 0.22) ls.classList.add('bg-dead');
-    else if(ecoIndex <= 0.55) ls.classList.add('bg-depleted');
-    else ls.classList.add('bg-lush');
-
+    // ── Squalor overlays ──
     const sq = this.clamp(s.squalor,0,100)/100;
-    this.ui.squalorFx.style.opacity = (sq < 0.15) ? 0 : this.clamp((sq - 0.15) * 1.1, 0, 0.92);
-    this.ui.sickTint.style.opacity  = (sq < 0.35) ? 0 : this.clamp((sq - 0.35) * 1.2, 0, 0.55);
+    this.ui.squalorFx.style.opacity = sq < 0.15 ? 0 : this.clamp((sq-0.15)*1.1, 0, 0.92);
+    this.ui.sickTint.style.opacity  = sq < 0.35 ? 0 : this.clamp((sq-0.35)*1.2, 0, 0.55);
 
+    // ── Entities ──
     this.ui.entities.innerHTML = "";
+
     const spawn = (html, x, y, z, cls="") => {
       const el = document.createElement('div');
       el.className = `entity animate-grow ${cls}`;
       el.innerHTML = html;
-      el.style.left = x + "%";
+      el.style.left   = x + "%";
       el.style.bottom = y + "%";
       el.style.zIndex = z;
       this.ui.entities.appendChild(el);
     };
 
-    for(let i=0;i<Math.min(28,s.pop);i++){
-      spawn(`<i class="fas fa-person text-stone-800 text-2xl animate-bob"></i>`, 10+Math.random()*80, 5+Math.random()*20, 50);
-    }
-
-    if(s.squalor > 35){
-      const sickCount = Math.min(10, 1 + Math.floor((s.squalor-30)/7));
-      for(let i=0;i<sickCount;i++){
-        spawn(`<span style="font-size:20px; opacity:0.9;">🤢</span>`, 12+Math.random()*76, 10+Math.random()*16, 70, "animate-bob");
-      }
-      const flies = Math.min(10, 1 + Math.floor((s.squalor-30)/8));
-      for(let i=0;i<flies;i++){
-        spawn(`<span style="font-size:18px; opacity:0.75;">🪰</span>`, 18+Math.random()*64, 10+Math.random()*14, 71, "animate-bob");
-      }
-    }
-    if(s.squalor > 70){
-      const rats = Math.min(7, 1 + Math.floor((s.squalor-70)/6));
-      for(let i=0;i<rats;i++){
-        spawn(`<span style="font-size:20px; opacity:0.85;">🐀</span>`, 15+Math.random()*70, 8+Math.random()*10, 72, "animate-bob");
-      }
-      const trash = Math.min(8, 1 + Math.floor((s.squalor-70)/8));
-      for(let i=0;i<trash;i++){
-        spawn(`<span style="font-size:20px; opacity:0.85;">🗑️</span>`, 18+Math.random()*64, 8+Math.random()*10, 73);
-      }
-    }
-
-    const settled = this.clamp(s.settled,0,100);
-    const houseIcon = (s.farms >= 3 || settled > 30 || s.housingCap >= 25) ? "fa-house-chimney" : "fa-campground";
-    const houseCount = Math.min(16, Math.ceil(s.housingCap/2) + Math.floor(settled/22));
-    for(let i=0;i<houseCount;i++){
-      spawn(`<i class="fas ${houseIcon} text-stone-700 text-3xl"></i>`, 5+Math.random()*90, 14+Math.random()*16, 20);
-    }
-
-    for(let i=0;i<Math.min(18,s.farms);i++){
-      spawn(`<i class="fas fa-wheat-awn text-amber-300 text-3xl drop-shadow"></i>`, 8+(i*5.2), 10, 60);
-    }
-
-    if(s.land < 45){
-      const stumps = Math.min(12, 2 + Math.floor((45 - s.land)/3));
-      for(let i=0;i<stumps;i++){
-        spawn(`<span style="font-size:20px; opacity:0.85;">🪵</span>`, 10+Math.random()*80, 22+Math.random()*18, 9);
-      }
-    }
-    if(s.land < 20){
-      const bones = Math.min(8, 1 + Math.floor((20 - s.land)/3));
-      for(let i=0;i<bones;i++){
-        spawn(`<span style="font-size:22px; opacity:0.75;">🦴</span>`, 15+Math.random()*70, 26+Math.random()*18, 33);
-      }
-    }
-
+    // Trees (background, z:8-12)
     const trees = Math.max(0, Math.ceil(s.land / 10));
-    for(let i=0;i<trees;i++){
-      spawn(`<i class="fas fa-tree text-green-900 text-4xl opacity-80"></i>`, Math.random()*90, 25+Math.random()*30, 10);
+    for(let i=0; i<trees; i++){
+      const sz = 28 + Math.floor(Math.random()*16);
+      const op = 0.55 + Math.random()*0.35;
+      spawn(`<i class="fas fa-tree" style="color:#14532d;font-size:${sz}px;opacity:${op.toFixed(2)};filter:drop-shadow(1px 2px 2px rgba(0,0,0,.4));"></i>`,
+            Math.random()*90, 30+Math.random()*28, 8, 'animate-sway');
     }
 
-    const showWildlife = (s.deer >= 25 && s.land >= 20);
-    if(showWildlife){
-      const deerCount = Math.min(7, 1 + Math.floor(s.deer/15));
-      for(let i=0;i<deerCount;i++){
-        const delay = (Math.random()*1.8).toFixed(2);
-        const size = 18 + Math.floor(Math.random()*10);
+    // Stumps (z:9)
+    if(s.land < 45){
+      const stumps = Math.min(12, 2 + Math.floor((45-s.land)/3));
+      for(let i=0; i<stumps; i++)
+        spawn(`<span style="font-size:18px;opacity:.8;">🪵</span>`, 10+Math.random()*80, 22+Math.random()*16, 9);
+    }
+
+    // Bones from land (z:10)
+    if(s.land < 20){
+      const bones = Math.min(8, 1 + Math.floor((20-s.land)/3));
+      for(let i=0; i<bones; i++)
+        spawn(`<span style="font-size:20px;opacity:.7;">🦴</span>`, 15+Math.random()*70, 24+Math.random()*16, 10);
+    }
+
+    // Mammoths (z:28)
+    if(Game.worldMammoths > 0 && s.deer >= 25 && s.land >= 20){
+      const mamCount = Math.min(2, 1 + Math.floor(Game.worldMammoths/6));
+      for(let i=0; i<mamCount; i++){
+        const delay = (Math.random()*2.2).toFixed(2);
+        const sz    = 26 + Math.floor(Math.random()*12);
         spawn(
-          `<span style="font-size:${size}px; filter:drop-shadow(1px 1px 0 rgba(255,255,255,.5)); animation-delay:${delay}s;">🦌</span>`,
-          8 + Math.random()*75, 24 + Math.random()*22, 35, "animate-hop"
+          `<span style="font-size:${sz}px;filter:drop-shadow(1px 2px 2px rgba(0,0,0,.5));animation-delay:${delay}s;">🦣</span>`,
+          10+Math.random()*68, 26+Math.random()*18, 28, "animate-lumber"
         );
       }
+    }
 
-      if(Game.worldMammoths > 0){
-        const mamCount = Math.min(2, 1 + Math.floor(Game.worldMammoths/6));
-        for(let i=0;i<mamCount;i++){
-          const delay = (Math.random()*2.1).toFixed(2);
-          const size = 24 + Math.floor(Math.random()*12);
-          spawn(
-            `<span style="font-size:${size}px; filter:drop-shadow(1px 1px 0 rgba(255,255,255,.5)); animation-delay:${delay}s;">🦣</span>`,
-            10 + Math.random()*68, 22 + Math.random()*20, 34, "animate-lumber"
-          );
-        }
+    // Deer (z:30)
+    const showWildlife = (s.deer >= 25 && s.land >= 20);
+    if(showWildlife){
+      const deerCount = Math.min(7, 1+Math.floor(s.deer/15));
+      for(let i=0; i<deerCount; i++){
+        const delay = (Math.random()*1.8).toFixed(2);
+        const sz    = 16 + Math.floor(Math.random()*10);
+        spawn(
+          `<span style="font-size:${sz}px;filter:drop-shadow(1px 1px 0 rgba(255,255,255,.4));animation-delay:${delay}s;">🦌</span>`,
+          8+Math.random()*75, 24+Math.random()*22, 30, "animate-hop"
+        );
       }
     } else if(s.deer < 25){
-      const bonesFew = Math.min(6, 1 + Math.floor((25 - s.deer)/5));
-      for(let i=0;i<bonesFew;i++){
-        spawn(`<span style="font-size:22px; opacity:0.65;">🦴</span>`, 18+Math.random()*64, 26+Math.random()*18, 33);
-      }
+      const bonesFew = Math.min(6, 1+Math.floor((25-s.deer)/5));
+      for(let i=0; i<bonesFew; i++)
+        spawn(`<span style="font-size:20px;opacity:.6;">🦴</span>`, 18+Math.random()*64, 25+Math.random()*16, 30);
+    }
+
+    // Buildings (z:20)
+    const settled   = this.clamp(s.settled,0,100);
+    const houseIcon = (s.farms>=3 || settled>30 || s.housingCap>=25) ? "fa-house-chimney" : "fa-campground";
+    const houseCount= Math.min(16, Math.ceil(s.housingCap/2)+Math.floor(settled/22));
+    for(let i=0; i<houseCount; i++){
+      const sz = 20 + Math.floor(Math.random()*10);
+      spawn(`<i class="fas ${houseIcon}" style="color:#78716c;font-size:${sz}px;filter:drop-shadow(1px 2px 3px rgba(0,0,0,.6));"></i>`,
+            5+Math.random()*90, 16+Math.random()*14, 20);
+    }
+
+    // Farms (z:22)
+    for(let i=0; i<Math.min(18,s.farms); i++){
+      spawn(`<i class="fas fa-wheat-awn" style="color:#fcd34d;font-size:28px;filter:drop-shadow(1px 1px 2px rgba(0,0,0,.5));"></i>`,
+            6+(i*5.4), 12, 22);
+    }
+
+    // People (z:48)
+    const showSick = s.squalor > 35;
+    for(let i=0; i<Math.min(28,s.pop); i++){
+      const personColor = showSick && Math.random()<0.3 ? '#4ade80' : '#1c1917';
+      spawn(`<i class="fas fa-person animate-bob" style="color:${personColor};font-size:22px;filter:drop-shadow(1px 1px 0 rgba(255,255,255,.2));"></i>`,
+            10+Math.random()*80, 6+Math.random()*18, 48);
+    }
+
+    // Squalor indicators (z:55-58)
+    if(s.squalor > 35){
+      const sickCount = Math.min(10, 1+Math.floor((s.squalor-30)/7));
+      for(let i=0; i<sickCount; i++)
+        spawn(`<span style="font-size:18px;opacity:.9;">🤢</span>`, 12+Math.random()*76, 10+Math.random()*14, 55, "animate-bob");
+      const flies = Math.min(10, 1+Math.floor((s.squalor-30)/8));
+      for(let i=0; i<flies; i++)
+        spawn(`<span style="font-size:16px;opacity:.75;">🪰</span>`, 18+Math.random()*64, 10+Math.random()*12, 56, "animate-bob");
+    }
+    if(s.squalor > 70){
+      const rats  = Math.min(7, 1+Math.floor((s.squalor-70)/6));
+      for(let i=0; i<rats; i++)
+        spawn(`<span style="font-size:18px;opacity:.85;">🐀</span>`, 15+Math.random()*70, 8+Math.random()*10, 57, "animate-bob");
+      const trash = Math.min(8, 1+Math.floor((s.squalor-70)/8));
+      for(let i=0; i<trash; i++)
+        spawn(`<span style="font-size:18px;opacity:.8;">🗑️</span>`, 18+Math.random()*64, 8+Math.random()*10, 58);
     }
   }
 
@@ -841,21 +1017,47 @@ class Game {
   }
 
   spawnFloater(text, color){
-    const el = document.createElement('div');
+    const palettes = {
+      red:   { bg:'rgba(127,0,0,.85)',    border:'rgba(239,68,68,.6)',   txt:'#fca5a5' },
+      amber: { bg:'rgba(100,55,0,.85)',   border:'rgba(251,191,36,.5)',  txt:'#fde68a' },
+      blue:  { bg:'rgba(0,30,100,.85)',   border:'rgba(96,165,250,.5)',  txt:'#bfdbfe' },
+      stone: { bg:'rgba(40,35,30,.85)',   border:'rgba(168,162,158,.4)', txt:'#e7e5e4' },
+    };
+    const p   = palettes[color] || palettes.stone;
+    const el  = document.createElement('div');
     el.innerText = text;
-    el.className = `floater text-${color}-600 text-2xl`;
-    el.style.left = "50%";
-    el.style.top = "40%";
-    el.style.transform = "translateX(-50%)";
+    el.className = 'floater';
+    el.style.cssText = `
+      background:${p.bg}; border:1px solid ${p.border}; color:${p.txt};
+      left:${35+Math.random()*30}%; top:${28+Math.random()*20}%;
+    `;
     this.ui.landscape.appendChild(el);
-    setTimeout(()=>el.remove(), 2000);
+    setTimeout(()=>el.remove(), 2200);
   }
 
-  log(text, color){
+  log(text, type){
+    // Map type to icon + color
+    const config = {
+      birth: { icon:'👶', cls:'text-blue-300' },
+      death: { icon:'💀', cls:'text-red-400 font-semibold' },
+      hunt:  { icon:'🏹', cls:'text-green-400' },
+      farm:  { icon:'🌾', cls:'text-amber-400' },
+      build: { icon:'🛖', cls:'text-stone-400' },
+      move:  { icon:'🚶', cls:'text-blue-400' },
+      warn:  { icon:'⚠️', cls:'text-amber-500 font-semibold' },
+      info:  { icon:'📜', cls:'text-stone-500' },
+    };
+    const { icon, cls } = config[type] || config.info;
     const div = document.createElement('div');
-    div.className = `mb-2 pb-1 border-b border-stone-300 ${color}`;
-    div.innerHTML = `<span class="text-xs text-stone-400 mr-1">[Y${this.state.turn}]</span> ${text}`;
-    this.ui.log.prepend(div);
+    div.className = `flex items-start gap-1.5 py-1.5 ${cls}`;
+    div.style.borderBottom = '1px solid rgba(255,255,255,.04)';
+    div.innerHTML = `
+      <span class="shrink-0 mt-0.5" style="font-size:11px;">${icon}</span>
+      <span class="text-[11px] leading-snug flex-1">
+        <span style="color:#57534e;font-size:9px;margin-right:3px;font-family:monospace;">[Y${this.state.turn}]</span>${text}
+      </span>
+    `;
+    this.ui.log.insertBefore(div, this.ui.log.children[1] || null);
   }
 }
 
