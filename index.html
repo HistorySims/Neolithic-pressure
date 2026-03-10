@@ -373,6 +373,8 @@ const TUNING = {
     OVERCROWD_SQUALOR_MULT: 10,
     SQUALOR_CROWDING_START: 0.9,
     SQUALOR_GAIN_SPEED: 0.2,
+    SQUALOR_POP_CAP_THRESHOLD: 50, // squalor cap lifts once pop reaches this
+    SQUALOR_SMALL_POP_CAP: 20,     // max squalor below that population
     SQUALOR_FROM_FARMS: 0.25,
     SQUALOR_FROM_BUILD: 0.70,
     SQUALOR_DECAY_LIGHT: 0.25,
@@ -634,7 +636,10 @@ class Game {
     sqDelta += s.builds * this.safe(TUNING.SQUALOR_FROM_BUILD,.70);
     if(light) sqDelta -= this.safe(TUNING.SQUALOR_DECAY_LIGHT,.25);
     if(sqDelta>0) sqDelta *= this.safe(TUNING.SQUALOR_GAIN_SPEED,1.0);
-    s.squalor = this.clamp(s.squalor + sqDelta, 0, 100);
+    const sqCap = s.pop >= this.safe(TUNING.SQUALOR_POP_CAP_THRESHOLD, 50)
+      ? 100
+      : this.safe(TUNING.SQUALOR_SMALL_POP_CAP, 20);
+    s.squalor = this.clamp(s.squalor + sqDelta, 0, sqCap);
 
     const diseaseStart = this.safe(TUNING.DISEASE_START,55);
     if(s.squalor >= diseaseStart){
